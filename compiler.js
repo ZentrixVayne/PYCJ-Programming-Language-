@@ -60,7 +60,7 @@ window.compilePyCJ = function(code) {
     code = code.replace(/\boutput\b/g, 'console.log');
     code = code.replace(/\bend\s*\(([^)]*)\)\s*;/g, '__end__($1);');
 
-    // 11. Input Handling
+    // 11. Input Handling (NOW ASYNC!)
     code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*`([^`]*)`/gi, (m, type, varName, promptText) => parseAsk(type, varName, promptText));
     code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*"([^"]*)"/gi, (m, type, varName, promptText) => parseAsk(type, varName, promptText));
 
@@ -107,7 +107,7 @@ window.compilePyCJ = function(code) {
     // 19. Ternary Operator
     code = code.replace(/\bif\s+(.*?)\s+then\s+(.*?)\s+else\s+(.*?)(?=[;\n\)\],])/g, '(($1) ? ($2) : ($3))');
 
-    // 20. Match Statement (FULLY FIXED WITH BRACE DEPTH TRACKER)
+    // 20. Match Statement
     code = translateMatchStatements(code);
     code = code.replace(/\belse\s+if\b/g, 'else if');
 
@@ -116,10 +116,8 @@ window.compilePyCJ = function(code) {
 
 function parseAsk(type, varName, promptText) {
     type = type.toLowerCase();
-    if (type === 'int') return `${varName} = parseInt(prompt("${promptText}"))`;
-    if (type === 'float') return `${varName} = parseFloat(prompt("${promptText}"))`;
-    if (type === 'bool') return `${varName} = (prompt("${promptText}").toLowerCase() === 'yes')`;
-    return `${varName} = prompt("${promptText}")`;
+    // Uses await __ask__ to pause execution and wait for terminal input
+    return `${varName} = await __ask__('${type}', ${JSON.stringify(promptText)});`;
 }
 
 function translateMatchStatements(code) {
@@ -136,16 +134,12 @@ function translateMatchStatements(code) {
             let opens = (stripped.match(/{/g) || []).length;
             let closes = (stripped.match(/}/g) || []).length;
 
-            // Calculate depth BEFORE processing the line
             matchBraceDepth += (opens - closes);
-            
-            // If depth drops to 0 or below, this line contains the closing brace of the `match` block
             if (matchBraceDepth <= 0) {
                 inMatch = false;
-                continue; // Skip pushing this closing brace to prevent breaking the global scope!
+                continue; 
             }
 
-            // Check if it's a case: "value {" or "else {"
             let caseMatch = stripped.match(/^([^\s}].*?)\s*\{$/);
             if (caseMatch) {
                 let val = caseMatch[1].trim();
@@ -171,9 +165,9 @@ function translateMatchStatements(code) {
         if (matchStart) {
             inMatch = true;
             matchVar = matchStart[2].trim();
-            matchBraceDepth = 1; // We are inside `match x {`
+            matchBraceDepth = 1;
             firstCase = true;
-            continue; // Skip pushing the `match x {` line
+            continue;
         }
 
         newLines.push(line);
@@ -181,11 +175,11 @@ function translateMatchStatements(code) {
     return newLines.join('\n');
 }
 
-// Execution Environment
-window.runPyCJ = function(pycjCode) {
+// Execution Environment (NOW ASYNC)
+window.runPyCJ = async function(pycjCode, logCallback, inputCallback) {
     let jsCode = window.compilePyCJ(pycjCode);
-    let output = "";
     let exitCode = 0;
+    let error = null;
     
     const customConsole = {
         log: function(...args) {
@@ -195,7 +189,7 @@ window.runPyCJ = function(pycjCode) {
                 }
                 return String(a);
             }).join(' ');
-            output += str + '\n';
+            logCallback(str, "var(--token-string)"); // Live output to terminal
         }
     };
 
@@ -211,21 +205,29 @@ window.runPyCJ = function(pycjCode) {
         if (index !== -1) this.splice(index, 1);
     };
 
+    const __ask__ = async (type, promptText) => {
+        let val = await inputCallback(promptText); // Calls the UI input function
+        if (type === 'int') return parseInt(val) || 0;
+        if (type === 'float') return parseFloat(val) || 0.0;
+        if (type === 'bool') return val.toLowerCase() === 'yes';
+        return val;
+    };
+
     try {
-        const func = new Function('console', '__end__', 'random', 'sqrt', 'abs', 'max', 'min', jsCode);
-        func(customConsole, __end__, random, sqrt, abs, max, min);
+        const asyncWrapper = `return (async () => { ${jsCode} })();`;
+        const func = new Function('console', '__end__', 'random', 'sqrt', 'abs', 'max', 'min', '__ask__', asyncWrapper);
+        await func(customConsole, __end__, random, sqrt, abs, max, min, __ask__);
     } catch (e) {
         if (e.isEnd) {
             exitCode = e.code;
         } else {
-            let errMsg = e.message;
-            if (errMsg.includes("is not defined")) {
-                errMsg = errMsg.replace(" is not defined", " is not defined (Check for missing variables or typos)");
+            error = e.message;
+            if (error.includes("is not defined")) {
+                error = error.replace(" is not defined", " is not defined (Check for missing variables or typos)");
             }
-            output += `PyCJ Runtime Error: ${errMsg}\n`;
             exitCode = 1;
         }
     }
     
-    return { output: output.trim(), exitCode: exitCode, debug_js: jsCode };
+    return { exitCode: exitCode, error: error, debug_js: jsCode };
 }
