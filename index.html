@@ -34,6 +34,14 @@
                         <span></span>
                     </button>
                     <div id="main-dropdown" class="dropdown-menu">
+                        <div class="dropdown-item-toggle">
+                            <span>💾 Autosave</span>
+                            <label class="switch-ui">
+                                <input type="checkbox" id="autosave-toggle" checked>
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                        <div class="dropdown-divider"></div>
                         <button id="theme-toggle" class="dropdown-item">🌓 Toggle Theme</button>
                         <button id="upload-btn" class="dropdown-item">📂 Upload File</button>
                         <button id="download-btn" class="dropdown-item">💾 Download File</button>
@@ -81,9 +89,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/matchbrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/selection/active-line.min.js"></script>
     
-    <!-- Load Compiler Engine FIRST -->
     <script src="compiler.js"></script>
-    <!-- Load UI Logic SECOND -->
     <script src="script.js"></script>
 </body>
 </html>
