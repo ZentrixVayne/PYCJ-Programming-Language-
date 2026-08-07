@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Arshman Anil">
+    <title>PyCJ - Professional IDE</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <header class="top-navbar">
+            <div class="header-left">
+                <div class="branding">
+                    <img src="logo.png" alt="PyCJ Logo" class="brand-icon" onerror="this.style.display='none'">
+                    <h1>PyCJ <span class="version-badge">v1.0</span></h1>
+                </div>
+            </div>
+            
+            <div class="header-center">
+                <div class="responsive-tabs">
+                    <button id="tab-code" class="tab-link active">Editor</button>
+                    <button id="tab-console" class="tab-link">Terminal</button>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <div class="dropdown-container">
+                    <button id="menu-toggle" class="menu-hamburger">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                    <div id="main-dropdown" class="dropdown-menu">
+                        <button id="theme-toggle" class="dropdown-item">🌓 Toggle Theme</button>
+                        <button id="upload-btn" class="dropdown-item">📂 Upload File</button>
+                        <button id="download-btn" class="dropdown-item">💾 Download File</button>
+                    </div>
+                </div>
+                <input type="file" id="file-input" accept=".txt,.pycj" style="display: none;">
+                
+                <button id="run-btn" class="btn btn-primary">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+                    Run
+                </button>
+            </div>
+        </header>
+
+        <main class="workspace-viewport show-editor" id="workspace">
+            <section class="panel editor-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Active Script Editor</span>
+                    <span class="shortcut-hint">Ctrl + Enter to Run</span>
+                </div>
+                <div class="editor-scroll-container">
+                    <div class="editor-workarea">
+                        <textarea id="code-editor" spellcheck="false" autocomplete="off"></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel console-panel" id="console-panel">
+                <div class="panel-header">
+                    <span class="panel-title">Interactive Terminal</span>
+                </div>
+                <div id="output" class="console-body">PyCJ v1.0 Terminal Initialized...<br>Waiting for execution.</div>
+            </section>
+        </main>
+
+        <footer class="app-footer">
+            <p>Made By <a href="https://codewitharshman.vercel.app/" target="_blank" rel="noopener noreferrer">Arshman Anil</a></p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/mode/simple.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/selection/active-line.min.js"></script>
+    
+    <!-- The JS Compiler Engine -->
+    <script src="compiler.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
