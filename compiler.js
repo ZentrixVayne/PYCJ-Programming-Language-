@@ -136,6 +136,15 @@ function translateMatchStatements(code) {
             let opens = (stripped.match(/{/g) || []).length;
             let closes = (stripped.match(/}/g) || []).length;
 
+            // Calculate depth BEFORE processing the line
+            matchBraceDepth += (opens - closes);
+            
+            // If depth drops to 0 or below, this line contains the closing brace of the `match` block
+            if (matchBraceDepth <= 0) {
+                inMatch = false;
+                continue; // Skip pushing this closing brace to prevent breaking the global scope!
+            }
+
             // Check if it's a case: "value {" or "else {"
             let caseMatch = stripped.match(/^([^\s}].*?)\s*\{$/);
             if (caseMatch) {
@@ -155,13 +164,6 @@ function translateMatchStatements(code) {
             } else {
                 newLines.push(line);
             }
-
-            matchBraceDepth += (opens - closes);
-            if (matchBraceDepth <= 0) {
-                inMatch = false;
-                // Skip the closing brace of the `match` block so it doesn't leave an extra `}`
-                continue; 
-            }
             continue;
         }
 
@@ -171,8 +173,7 @@ function translateMatchStatements(code) {
             matchVar = matchStart[2].trim();
             matchBraceDepth = 1; // We are inside `match x {`
             firstCase = true;
-            // We don't push the `match x {` line, effectively removing it
-            continue;
+            continue; // Skip pushing the `match x {` line
         }
 
         newLines.push(line);
