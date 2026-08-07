@@ -107,7 +107,7 @@ window.compilePyCJ = function(code) {
     // 19. Ternary Operator
     code = code.replace(/\bif\s+(.*?)\s+then\s+(.*?)\s+else\s+(.*?)(?=[;\n\)\],])/g, '(($1) ? ($2) : ($3))');
 
-    // 20. Match Statement
+    // 20. Match Statement (FULLY FIXED WITH BRACE DEPTH TRACKER)
     code = translateMatchStatements(code);
     code = code.replace(/\belse\s+if\b/g, 'else if');
 
@@ -127,45 +127,54 @@ function translateMatchStatements(code) {
     let newLines = [];
     let inMatch = false;
     let matchVar = "";
-    let matchDepth = 0;
+    let matchBraceDepth = 0;
     let firstCase = true;
 
     for (let line of lines) {
         if (inMatch) {
-            let opens = (line.match(/{/g) || []).length;
-            let closes = (line.match(/}/g) || []).length;
-            let caseMatch = line.match(/^(\s*)([^\s}].*?)\s*\{/);
+            let stripped = line.trim();
+            let opens = (stripped.match(/{/g) || []).length;
+            let closes = (stripped.match(/}/g) || []).length;
+
+            // Check if it's a case: "value {" or "else {"
+            let caseMatch = stripped.match(/^([^\s}].*?)\s*\{$/);
             if (caseMatch) {
-                let indent = caseMatch[1];
-                let val = caseMatch[2].trim();
+                let val = caseMatch[1].trim();
+                let originalIndent = line.match(/^(\s*)/)[1];
+
                 if (val.toLowerCase() === 'else') {
-                    newLines.push(line.replace(/^(\s*)(.*?)\s*\{/, '$1else {'));
+                    newLines.push(originalIndent + 'else {');
                 } else {
                     if (firstCase) {
-                        newLines.push(line.replace(/^(\s*)(.*?)\s*\{/, `$1if (${matchVar} == ${val}) {`));
+                        newLines.push(originalIndent + `if (${matchVar} == ${val}) {`);
                         firstCase = false;
                     } else {
-                        newLines.push(line.replace(/^(\s*)(.*?)\s*\{/, `$1else if (${matchVar} == ${val}) {`));
+                        newLines.push(originalIndent + `else if (${matchVar} == ${val}) {`);
                     }
                 }
-                matchDepth += (opens - closes);
-                continue;
             } else {
-                matchDepth += (opens - closes);
-                if (matchDepth <= 0) inMatch = false;
                 newLines.push(line);
-                continue;
             }
+
+            matchBraceDepth += (opens - closes);
+            if (matchBraceDepth <= 0) {
+                inMatch = false;
+                // Skip the closing brace of the `match` block so it doesn't leave an extra `}`
+                continue; 
+            }
+            continue;
         }
+
         let matchStart = line.match(/^(\s*)match\s+(.+?)\s*\{/i);
         if (matchStart) {
             inMatch = true;
             matchVar = matchStart[2].trim();
-            matchDepth = 1;
+            matchBraceDepth = 1; // We are inside `match x {`
             firstCase = true;
-            newLines.push(matchStart[1] + 'if (true) {');
+            // We don't push the `match x {` line, effectively removing it
             continue;
         }
+
         newLines.push(line);
     }
     return newLines.join('\n');
