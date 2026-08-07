@@ -37,7 +37,6 @@ CodeMirror.defineMode("pycj", function() {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-    // The Ultimate Welcome Code (Showcases all features)
     const welcomeCode = `use pycj
 
 // Welcome to PyCJ! The easiest programming language.
@@ -74,7 +73,7 @@ end(0);`;
     if (isAutosaveOn) {
         initialCode = localStorage.getItem('pycj_code') || welcomeCode;
     } else {
-        localStorage.removeItem('pycj_code'); // Clear old code if autosave is off
+        localStorage.removeItem('pycj_code');
     }
 
     document.getElementById("code-editor").value = initialCode;
@@ -117,13 +116,17 @@ end(0);`;
     const fileInput = document.getElementById("file-input");
     const menuToggle = document.getElementById("menu-toggle");
     const mainDropdown = document.getElementById("main-dropdown");
+    
+    // Terminal Input Elements
+    const terminalInputContainer = document.getElementById("terminal-input-container");
+    const terminalPromptText = document.getElementById("terminal-prompt");
+    const terminalInputField = document.getElementById("terminal-input-field");
 
     menuToggle.addEventListener("click", (e) => { e.stopPropagation(); mainDropdown.classList.toggle("active"); });
     document.addEventListener("click", (e) => {
         if (!mainDropdown.contains(e.target) && e.target !== menuToggle) mainDropdown.classList.remove("active");
     });
 
-    // Autosave Toggle Listener
     autosaveToggle.addEventListener("change", () => {
         isAutosaveOn = autosaveToggle.checked;
         localStorage.setItem('pycj_autosave', isAutosaveOn);
@@ -139,7 +142,6 @@ end(0);`;
         }
     }
 
-    // Editor Change Listener (Respects Autosave)
     let saveTimeout;
     editor.on("change", () => {
         if (isAutosaveOn) {
@@ -183,6 +185,27 @@ end(0);`;
         outputDiv.appendChild(lineDiv); outputDiv.scrollTop = outputDiv.scrollHeight;
     }
 
+    // --- INLINE TERMINAL INPUT LOGIC ---
+    function waitForInput(promptText) {
+        return new Promise((resolve) => {
+            terminalPromptText.innerText = promptText;
+            terminalInputContainer.style.display = "flex";
+            terminalInputField.value = "";
+            terminalInputField.focus();
+
+            function handleSubmit(e) {
+                if (e.key === "Enter") {
+                    const val = terminalInputField.value;
+                    terminalInputContainer.style.display = "none";
+                    terminalInputField.removeEventListener("keydown", handleSubmit);
+                    addTerminalLine(promptText + val, "var(--text-console-prompt)");
+                    resolve(val);
+                }
+            }
+            terminalInputField.addEventListener("keydown", handleSubmit);
+        });
+    }
+
     function setRunState() {
         runBtn.disabled = false; runBtn.classList.remove("btn-stop"); runBtn.classList.add("btn-primary");
         runBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg> Run`;
@@ -209,24 +232,15 @@ end(0);`;
         await new Promise(r => setTimeout(r, 50));
 
         try {
-            const result = window.runPyCJ(code);
+            // Pass addTerminalLine and waitForInput to the compiler
+            const result = await window.runPyCJ(code, addTerminalLine, waitForInput);
 
-            if (result.output.includes("Warning")) {
-                const warnDiv = document.createElement("div");
-                warnDiv.className = "console-warning-box";
-                warnDiv.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0; margin-right: 8px;"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"></path></svg> ${result.output.replace("PyCJ Warning: ", "")}`;
-                outputDiv.appendChild(warnDiv);
-            } 
-            else if (result.output.includes("Error")) {
+            if (result.error) {
                 const errDiv = document.createElement("div");
                 errDiv.className = "console-error-box";
-                errDiv.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0; margin-right: 8px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg> ${result.output}`;
+                errDiv.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0; margin-right: 8px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg> ${result.error}`;
                 outputDiv.appendChild(errDiv);
-            } 
-            else {
-                const lines = result.output.trim().split('\n');
-                lines.forEach(line => { if (line.trim() !== "") addTerminalLine(line, "var(--token-string)"); });
-                
+            } else {
                 const exitDiv = document.createElement("div");
                 exitDiv.className = "console-exit-box";
                 exitDiv.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path></svg> Code returned with value of ${result.exitCode}`;
