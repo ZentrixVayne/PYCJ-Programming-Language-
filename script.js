@@ -1,4 +1,4 @@
-// 1. DEFINE CUSTOM PyCJ SYNTAX HIGHLIGHTER (State Machine for Perfect Strings)
+// 1. DEFINE CUSTOM PyCJ SYNTAX HIGHLIGHTER
 CodeMirror.defineMode("pycj", function() {
     return {
         startState: function() { return { inString: false, stringQuote: "" }; },
@@ -37,15 +37,47 @@ CodeMirror.defineMode("pycj", function() {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-    const defaultCode = `use pycj
+    // The Ultimate Welcome Code (Showcases all features)
+    const welcomeCode = `use pycj
 
-for i in range(1, <=, 5) {
-    output("*" * i)
+// Welcome to PyCJ! The easiest programming language.
+ask string name = "What is your name? "
+output("Welcome, {name}!")
+
+lock PI = 3.14
+imagine score = random(1, 100)
+output("You scored: {score}")
+
+match score {
+    100 {
+        output("Perfect Score! You mastered PyCJ!")
+    }
+    else {
+        output("Keep learning, {name}!")
+    }
 }
+
+function greet(user) {
+    output("Hello {user}, enjoy coding!")
+}
+greet(name)
+
+output("-" * 20)
 end(0);`;
 
-    const savedCode = localStorage.getItem('pycj_code') || defaultCode;
-    document.getElementById("code-editor").value = savedCode;
+    // --- AUTOSAVE LOGIC ---
+    const autosaveToggle = document.getElementById("autosave-toggle");
+    let isAutosaveOn = localStorage.getItem('pycj_autosave') !== 'false';
+    autosaveToggle.checked = isAutosaveOn;
+
+    let initialCode = welcomeCode;
+    if (isAutosaveOn) {
+        initialCode = localStorage.getItem('pycj_code') || welcomeCode;
+    } else {
+        localStorage.removeItem('pycj_code'); // Clear old code if autosave is off
+    }
+
+    document.getElementById("code-editor").value = initialCode;
 
     const editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
         lineNumbers: true, indentUnit: 4, mode: "pycj", theme: "pycj",
@@ -91,6 +123,15 @@ end(0);`;
         if (!mainDropdown.contains(e.target) && e.target !== menuToggle) mainDropdown.classList.remove("active");
     });
 
+    // Autosave Toggle Listener
+    autosaveToggle.addEventListener("change", () => {
+        isAutosaveOn = autosaveToggle.checked;
+        localStorage.setItem('pycj_autosave', isAutosaveOn);
+        if (!isAutosaveOn) {
+            localStorage.removeItem('pycj_code');
+        }
+    });
+
     function showTerminalView() {
         if (window.matchMedia('(max-width: 1100px)').matches) {
             tabCode.classList.remove("active"); tabConsole.classList.add("active");
@@ -98,10 +139,13 @@ end(0);`;
         }
     }
 
+    // Editor Change Listener (Respects Autosave)
     let saveTimeout;
     editor.on("change", () => {
-        clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(() => localStorage.setItem('pycj_code', editor.getValue()), 500);
+        if (isAutosaveOn) {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => localStorage.setItem('pycj_code', editor.getValue()), 500);
+        }
     });
 
     uploadBtn.addEventListener("click", () => fileInput.click());
@@ -109,7 +153,7 @@ end(0);`;
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (event) => { editor.setValue(event.target.result); localStorage.setItem('pycj_code', event.target.result); };
+        reader.onload = (event) => { editor.setValue(event.target.result); if (isAutosaveOn) localStorage.setItem('pycj_code', event.target.result); };
         reader.readAsText(file);
     });
 
