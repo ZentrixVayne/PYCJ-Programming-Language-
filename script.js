@@ -1,9 +1,7 @@
 // 1. DEFINE CUSTOM PyCJ SYNTAX HIGHLIGHTER (State Machine for Perfect Strings)
 CodeMirror.defineMode("pycj", function() {
     return {
-        startState: function() {
-            return { inString: false, stringQuote: "" };
-        },
+        startState: function() { return { inString: false, stringQuote: "" }; },
         token: function(stream, state) {
             if (state.inString) {
                 if (stream.match("{")) {
@@ -17,7 +15,6 @@ CodeMirror.defineMode("pycj", function() {
                 if (stream.match(state.stringQuote)) { state.inString = false; return "string"; }
                 stream.next(); return "string";
             }
-
             if (stream.match("//", false)) { stream.skipToEnd(); return "comment"; }
             if (stream.match("/*", false)) {
                 stream.next(); stream.next();
@@ -27,9 +24,7 @@ CodeMirror.defineMode("pycj", function() {
                 }
                 return "comment";
             }
-            if (stream.match('"') || stream.match("'")) {
-                state.inString = true; state.stringQuote = stream.current(); return "string";
-            }
+            if (stream.match('"') || stream.match("'")) { state.inString = true; state.stringQuote = stream.current(); return "string"; }
             if (stream.match(/\b(?:imagine|output|ask|if|elif|else|repeat|until|while|for|function|return|end|Yes|No|stop|skip|attempt|rescue|lock|then|use|match)\b/i)) return "keyword";
             if (stream.match(/\b(?:int|float|str|string|bool|random|sqrt|abs|max|min|len|add|remove|pycj)\b/i)) return "builtin";
             if (stream.match(/\b\d+(?:\.\d+)?\b/)) return "number";
@@ -44,16 +39,9 @@ CodeMirror.defineMode("pycj", function() {
 document.addEventListener("DOMContentLoaded", () => {
     const defaultCode = `use pycj
 
-ask int n = "Enter N = "
-imagine reversed = 0
-
-while n > 0 {
-    imagine digits = n % 10
-    reversed = (reversed * 10) + digits
-    n = n / 10
+for i in range(1, <=, 5) {
+    output("*" * i)
 }
-
-output("Reversed = {reversed}")
 end(0);`;
 
     const savedCode = localStorage.getItem('pycj_code') || defaultCode;
@@ -163,7 +151,6 @@ end(0);`;
 
     async function runCode() {
         if (runBtn.classList.contains("btn-stop")) {
-            // JS thread blocking doesn't allow clean cancellation easily, but we can reset UI
             setRunState();
             addTerminalLine("--- Execution Stopped By User ---", "var(--error-color)");
             return;
@@ -175,7 +162,6 @@ end(0);`;
         outputDiv.innerHTML = "";
         addTerminalLine("--- Executing PyCJ Script ---", "var(--accent-color)");
         
-        // Small timeout to allow UI to update before JS thread blocks
         await new Promise(r => setTimeout(r, 50));
 
         try {
