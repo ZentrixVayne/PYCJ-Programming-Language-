@@ -41,18 +41,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Welcome to PyCJ! The easiest programming language.
 ask string name = "What is your name? "
-echo("Welcome, {name}!")
+echo "Welcome, {name}!"
 
 lock PI = 3.14
 imagine score = random(1, 100)
-echo("You scored: {score}")
+echo "You scored: {score}"
 
 match score {
     100 {
-        echo("Perfect Score! You mastered PyCJ!")
+        echo "Perfect Score! You mastered PyCJ!"
     }
     else {
-        echo("Keep learning, {name}!")
+        echo "Keep learning, {name}!"
     }
 }
 
@@ -67,36 +67,34 @@ student(name) = name
 student(age) = 16
 student.remove = is_student
 
-echo("Student Name: {student(name)}")
-echo("Student Age: {student(age)}")
+echo "Student Name: {student(name)}"
+echo "Student Age: {student(age)}"
 
 for key in student {
-    echo("Key: {key}")
+    echo "Key: {key}"
 }
 
 // Lambda Functions (Anonymous Functions)
 imagine adder = (a, b) => {
     return a + b
 }
-echo("5 + 10 = {adder(5, 10)}")
+echo "5 + 10 = {adder(5, 10)}"
 
 craft greet(user) {
-    echo("Hello {user}, enjoy coding!")
+    echo "Hello {user}, enjoy coding!"
 }
 greet(name)
 
-echo("-" * 20)
+echo "-" * 20
 halt(0);`;
 
-    // --- AUTOSAVE & URL SHARE LOGIC ---
     const autosaveToggle = document.getElementById("autosave-toggle");
     let isAutosaveOn = localStorage.getItem('pycj_autosave') !== 'false';
     autosaveToggle.checked = isAutosaveOn;
 
     let initialCode = welcomeCode;
-    
-    // Check if code is in URL (Shared Link)
     const hash = window.location.hash;
+    
     if (hash.startsWith('#code=')) {
         let compressed = hash.substring(6);
         try {
@@ -104,6 +102,7 @@ halt(0);`;
         } catch (e) {
             initialCode = welcomeCode;
         }
+        history.replaceState(null, '', window.location.pathname);
     } else if (isAutosaveOn) {
         initialCode = localStorage.getItem('pycj_code') || welcomeCode;
     } else {
@@ -151,10 +150,12 @@ halt(0);`;
     const menuToggle = document.getElementById("menu-toggle");
     const mainDropdown = document.getElementById("main-dropdown");
     
-    // New Feature Buttons
     const shareCodeBtn = document.getElementById("share-code-btn");
-    const formatCodeBtn = document.getElementById("format-code-btn");
     const clearTerminalBtn = document.getElementById("clear-terminal-btn");
+    const shareModal = document.getElementById("share-modal");
+    const modalCloseBtn = document.getElementById("modal-close-btn");
+    const modalCopyBtn = document.getElementById("modal-copy-btn");
+    const shareUrlInput = document.getElementById("share-url-input");
 
     const terminalInputContainer = document.getElementById("terminal-input-container");
     const terminalPromptText = document.getElementById("terminal-prompt");
@@ -173,53 +174,27 @@ halt(0);`;
         }
     });
 
-    // --- NEW FEATURE LOGIC ---
-
-    // 1. Share Code (Compresses to random URL)
     shareCodeBtn.addEventListener("click", () => {
         let code = editor.getValue();
         let compressed = LZString.compressToEncodedURIComponent(code);
         let baseUrl = window.location.origin + window.location.pathname;
         let shareUrl = `${baseUrl}#code=${compressed}`;
-        
-        navigator.clipboard.writeText(shareUrl).then(() => {
-            alert("✅ Shareable link copied to clipboard!\n\nSend this link to anyone and they will see your exact code.");
-        }).catch(err => {
-            prompt("Copy this link to share your code:", shareUrl);
-        });
+        shareUrlInput.value = shareUrl;
+        shareModal.style.display = "flex";
     });
 
-    // 2. Format Code (Auto-Indent)
-    formatCodeBtn.addEventListener("click", () => {
-        let code = editor.getValue();
-        let lines = code.split('\n');
-        let formattedLines = [];
-        let indentLevel = 0;
-        
-        for (let line of lines) {
-            let trimmed = line.trim();
-            if (trimmed.startsWith('}') ) {
-                indentLevel = Math.max(0, indentLevel - 1);
-            }
-            let formattedLine = '    '.repeat(indentLevel) + trimmed;
-            formattedLines.push(formattedLine);
-            
-            let opens = (trimmed.match(/{/g) || []).length;
-            let closes = (trimmed.match(/}/g) || []).length;
-            indentLevel += (opens - closes);
-            if (indentLevel < 0) indentLevel = 0;
-        }
-        
-        editor.setValue(formattedLines.join('\n'));
+    modalCloseBtn.addEventListener("click", () => shareModal.style.display = "none");
+    modalCopyBtn.addEventListener("click", () => {
+        shareUrlInput.select();
+        document.execCommand('copy');
+        modalCopyBtn.innerText = "✅ Copied!";
+        setTimeout(() => { modalCopyBtn.innerText = "Copy Link"; }, 2000);
     });
 
-    // 3. Clear Terminal
     clearTerminalBtn.addEventListener("click", () => {
         outputDiv.innerHTML = "";
         addTerminalLine("Terminal Cleared.", "var(--text-console-prompt)");
     });
-
-    // ------------------------------
 
     function showTerminalView() {
         if (window.matchMedia('(max-width: 1100px)').matches) {
