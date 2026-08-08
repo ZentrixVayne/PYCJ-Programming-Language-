@@ -45,57 +45,98 @@ window.compilePyCJ = function(code) {
     });
 
     // 5. Normalize structural keywords to lowercase
-    code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|echo|ask|halt|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match)\b/gi, (m) => m.toLowerCase());
+    code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|echo|ask|halt|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match|in)\b/gi, (m) => m.toLowerCase());
 
-    // 6. Multiple Return Values (return a, b -> return [a, b])
+    // --- NEW: 6. DICTIONARY ENGINE ---
+    // Find all dictionary names (imagine name = { OR lock name = {)
+    let dictNames = [];
+    let dictRegex = /\b(?:imagine|lock)\s+([a-zA-Z_]\w*)\s*=\s*\{/g;
+    let m;
+    while ((m = dictRegex.exec(code)) !== null) {
+        dictNames.push(m[1]);
+    }
+
+    // Transform dictionary creation syntax (key = val -> "key": val, adds commas)
+    code = code.replace(/=\s*\{([\s\S]*?)\}/g, (match, content) => {
+        let newContent = content.trim();
+        // Replace newlines with commas to ensure valid JS object syntax
+        newContent = newContent.replace(/\n/g, ', ');
+        // Replace 'key = ' with '"key": ' (ignoring '==')
+        newContent = newContent.replace(/(\w+)\s*=(?!=)\s*/g, '"$1": ');
+        // Remove any trailing comma before closing
+        newContent = newContent.replace(/,\s*$/, '');
+        return `= { ${newContent} }`;
+    });
+
+    // Transform dictionary access and update (student(name) -> student.name)
+    dictNames.forEach(name => {
+        let accessRegex = new RegExp(`\\b${name}\\(\\s*(\\w+)\\s*\\)`, 'g');
+        code = code.replace(accessRegex, `${name}.$1`);
+
+        // Transform deletion (student.remove = name -> delete student.name)
+        let removeRegex = new RegExp(`\\b${name}\\.remove\\s*=\\s*(\\w+)`, 'g');
+        code = code.replace(removeRegex, `delete ${name}.$1;`);
+    });
+
+    // Transform for...in loops for dictionaries (for key in user -> for (let key in user))
+    code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+([a-zA-Z_]\w*)\s*\{/g, (match, key, obj) => {
+        if (dictNames.includes(obj)) {
+            return `for (let ${key} in ${obj}) {`;
+        }
+        // If it's not a dict, use 'of' for arrays
+        return `for (let ${key} of ${obj}) {`;
+    });
+    // ----------------------------
+
+    // 7. Multiple Return Values (return a, b -> return [a, b])
     code = code.replace(/\breturn\s+([a-zA-Z_0-9\.]+(?:\s*,\s*[a-zA-Z_0-9\.]+)+)/g, (match, p1) => 'return [' + p1 + ']');
-    // 7. Array Destructuring (imagine x, y = func() -> let [x, y] = func())
+    // 8. Array Destructuring (imagine x, y = func() -> let [x, y] = func())
     code = code.replace(/\bimagine\s+([a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)+)\s*=/g, 'imagine [$1] =');
-    // 8. String Multiplication ("-" * 30 OR "*" * i -> "-".repeat(30) OR "*".repeat(i))
+    // 9. String Multiplication ("-" * 30 OR "*" * i -> "-".repeat(30) OR "*".repeat(i))
     code = code.replace(/(["'`][^"'`]+["'`])\s*\*\s*([a-zA-Z_]\w*|\d+)/g, '$1.repeat($2)');
     code = code.replace(/([a-zA-Z_]\w*|\d+)\s*\*\s*(["'`][^"'`]+["'`])/g, '$2.repeat($1)');
 
-    // 9. Map 'craft' to 'function'
+    // 10. Map 'craft' to 'function'
     code = code.replace(/\bcraft\b/g, 'function');
 
-    // 10. Variables & Constants
+    // 11. Variables & Constants
     code = code.replace(/\bimagine\b/g, 'let');
     code = code.replace(/\block\b/g, 'const');
 
-    // 11. Echo & Halt
+    // 12. Echo & Halt
     code = code.replace(/\becho\b/g, 'console.log');
     code = code.replace(/\bhalt\s*\(([^)]*)\)\s*;/g, '__end__($1);');
 
-    // 12. Input Handling (ASYNC)
+    // 13. Input Handling (ASYNC)
     code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*`([^`]*)`/gi, (m, type, varName, promptText) => parseAsk(type, varName, promptText));
     code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*"([^"]*)"/gi, (m, type, varName, promptText) => parseAsk(type, varName, promptText));
 
-    // 13. Math Operators
+    // 14. Math Operators
     code = code.replace(/([a-zA-Z_]\w*)\s*\/=\/=\s*([a-zA-Z0-9_\(\)\.]+)/g, '$1 = Math.floor($1 / $2)');
     code = code.replace(/([a-zA-Z0-9_\)\]]+)\s*\/=\/\s*([a-zA-Z0-9_\(\.]+)/g, 'Math.floor($1 / $2)');
 
-    // 14. Booleans & Logical Operators
+    // 15. Booleans & Logical Operators
     code = code.replace(/\byes\b/gi, 'true');
     code = code.replace(/\bno\b/gi, 'false');
     code = code.replace(/\band\b/gi, '&&');
     code = code.replace(/\bor\b/gi, '||');
     code = code.replace(/\bnot\b/gi, '!');
 
-    // 15. Loop Control & Error Handling
+    // 16. Loop Control & Error Handling
     code = code.replace(/\bstop\b/g, 'break');
     code = code.replace(/\bskip\b/g, 'continue');
     code = code.replace(/\battempt\b/g, 'try');
     code = code.replace(/\brescue\b/g, 'catch(e)');
 
-    // 16. List Methods
+    // 17. List Methods
     code = code.replace(/\.add\(/g, '.push(');
     code = code.replace(/\.len\(\)/g, '.length');
     code = code.replace(/\.remove\(/g, '.pycjRemove(');
 
-    // 17. C-style For Loop
+    // 18. C-style For Loop
     code = code.replace(/for\s*\(\s*(?:int\s+)?([a-zA-Z_]\w*)\s*=\s*([^,]+)\s*,\s*\1\s*(<=?|>=?|==|!=)\s*([^,]+)\s*,\s*\1(\+\+|--)\s*\)/g, 'for (let $1 = $2; $1 $3 $4; $1$5)');
 
-    // 18. PyCJ Range Loop (Explicit Operators: range(1, <=, 5))
+    // 19. PyCJ Range Loop (Explicit Operators: range(1, <=, 5))
     code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+range\s*\(\s*([^,)]+)\s*,\s*(<=|>=|<|>|!=)\s*,\s*([^,)]+)\s*\)/g, (match, v, s, o, e) => {
         if (o === '<') return `for (let ${v} = ${s}; ${v} < ${e}; ${v}++)`;
         if (o === '<=') return `for (let ${v} = ${s}; ${v} <= ${e}; ${v}++)`;
@@ -106,14 +147,14 @@ window.compilePyCJ = function(code) {
     // Standard Inclusive Range Loop: range(1, 5)
     code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+range\s*\(\s*([^,)]+)\s*,\s*([^,)]+)\s*\)/g, 'for (let $1 = $2; $1 <= $3; $1++)');
 
-    // 19. Repeat...Until
+    // 20. Repeat...Until
     code = code.replace(/\brepeat\s*\{/g, 'do {');
     code = code.replace(/\buntil\s+(.*?)(?=\n)/g, 'while (!($1));');
 
-    // 20. Ternary Operator
+    // 21. Ternary Operator
     code = code.replace(/\bif\s+(.*?)\s+then\s+(.*?)\s+else\s+(.*?)(?=[;\n\)\],])/g, '(($1) ? ($2) : ($3))');
 
-    // 21. Match Statement
+    // 22. Match Statement
     code = translateMatchStatements(code);
     code = code.replace(/\belse\s+if\b/g, 'else if');
 
@@ -155,7 +196,7 @@ function translateMatchStatements(code) {
                 } else {
                     if (firstCase) {
                         newLines.push(originalIndent + `if (${matchVar} == ${val}) {`);
-                        firstCase = false; // FIXED: Lowercase 'false' for JavaScript
+                        firstCase = false;
                     } else {
                         newLines.push(originalIndent + `else if (${matchVar} == ${val}) {`);
                     }
