@@ -47,7 +47,7 @@ window.compilePyCJ = function(code) {
     // 5. Normalize structural keywords to lowercase
     code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|echo|ask|halt|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match|in)\b/gi, (m) => m.toLowerCase());
 
-    // --- NEW: 6. DICTIONARY ENGINE ---
+    // --- 6. DICTIONARY ENGINE ---
     // Find all dictionary names (imagine name = { OR lock name = {)
     let dictNames = [];
     let dictRegex = /\b(?:imagine|lock)\s+([a-zA-Z_]\w*)\s*=\s*\{/g;
@@ -78,13 +78,17 @@ window.compilePyCJ = function(code) {
         code = code.replace(removeRegex, `delete ${name}.$1;`);
     });
 
-    // Transform for...in loops for dictionaries (for key in user -> for (let key in user))
-    code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+([a-zA-Z_]\w*)\s*\{/g, (match, key, obj) => {
+    // Transform for...in loops for dictionaries
+    // 1. Handle Key-Value pairs: for k, v in dict -> for (let [k, v] of Object.entries(dict))
+    code = code.replace(/for\s+([a-zA-Z_]\w*)\s*,\s*([a-zA-Z_]\w*)\s+in\s+([a-zA-Z_]\w*)\s*\{/g, (match, k, v, obj) => {
+        return `for (let [${k}, ${v}] of Object.entries(${obj})) {`;
+    });
+    // 2. Handle Key only: for k in dict -> for (let k in dict) OR for (let k of array)
+    code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+([a-zA-Z_]\w*)\s*\{/g, (match, k, obj) => {
         if (dictNames.includes(obj)) {
-            return `for (let ${key} in ${obj}) {`;
+            return `for (let ${k} in ${obj}) {`;
         }
-        // If it's not a dict, use 'of' for arrays
-        return `for (let ${key} of ${obj}) {`;
+        return `for (let ${k} of ${obj}) {`;
     });
     // ----------------------------
 
