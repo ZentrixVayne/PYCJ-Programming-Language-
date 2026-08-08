@@ -38,7 +38,7 @@ CodeMirror.defineMode("pycj", function() {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Updated Welcome Code (Added Dictionary Example)
+    // Updated Welcome Code (Added Lambda/Arrow Function Example)
     const welcomeCode = `USE PYCJ
 
 // Welcome to PyCJ! The easiest programming language.
@@ -75,6 +75,12 @@ echo("Student Age: {student(age)}")
 for key in student {
     echo("Key: {key}")
 }
+
+// Lambda Functions (Anonymous Functions)
+imagine adder = (a, b) => {
+    return a + b
+}
+echo("5 + 10 = {adder(5, 10)}")
 
 craft greet(user) {
     echo("Hello {user}, enjoy coding!")
