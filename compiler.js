@@ -42,11 +42,9 @@ window.compilePyCJ = function(code) {
     // 5. Normalize structural keywords to lowercase
     code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|echo|ask|halt|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match|in)\b/gi, (m) => m.toLowerCase());
 
-    // --- NEW: 5.5 INJECT PARENTHESES FOR JS CONTROL STRUCTURES ---
+    // 5.5 INJECT PARENTHESES FOR JS CONTROL STRUCTURES
     code = code.replace(/\bif\s+(.*?)\s*\{/g, 'if ($1) {');
     code = code.replace(/\bwhile\s+(.*?)\s*\{/g, 'while ($1) {');
-    // (for loops already have parentheses in PyCJ syntax)
-    // ------------------------------------------------------------
 
     // --- 6. DICTIONARY ENGINE ---
     let dictNames = [];
@@ -71,12 +69,10 @@ window.compilePyCJ = function(code) {
     });
     // ----------------------------
 
-    // 7. Multiple Return Values (FIXED to handle math expressions)
+    // 7. Multiple Return Values
     code = code.replace(/\breturn\s+([^;\n]+,[^;\n]+)\n/g, (match, p1) => `return [${p1.trim()}]\n`);
-    
     // 8. Array Destructuring
     code = code.replace(/\bimagine\s+([a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)+)\s*=/g, 'imagine [$1] =');
-    
     // 9. String Multiplication
     code = code.replace(/(["'`][^"'`]+["'`])\s*\*\s*([a-zA-Z_]\w*|\d+)/g, '$1.repeat($2)');
     code = code.replace(/([a-zA-Z_]\w*|\d+)\s*\*\s*(["'`][^"'`]+["'`])/g, '$2.repeat($1)');
@@ -88,18 +84,23 @@ window.compilePyCJ = function(code) {
     code = code.replace(/\bimagine\b/g, 'let');
     code = code.replace(/\block\b/g, 'const');
 
-    // 12. Echo & Halt
-    code = code.replace(/\becho\b/g, 'console.log');
+    // --- 12. ECHO (SUPPORTS BOTH PYTHON AND BASH STYLE) ---
+    code = code.replace(/\becho\s*\(/g, 'console.log(');
+    code = code.replace(/^(\s*)echo\s+(?!.*\()(.*?)(\s*\/\/.*)?$/gm, (match, indent, expr, comment) => {
+        return `${indent}console.log(${expr.trim()})${comment || ''}`;
+    });
+    // -------------------------------------------------------
+
+    // 12.5 Halt
     code = code.replace(/\bhalt\s*\(([^)]*)\)\s*;/g, '__end__($1);');
 
     // 13. Input Handling (ASYNC)
     code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*`([^`]*)`/gi, (m, t, v, p) => parseAsk(t, v, p));
     code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*"([^"]*)"/gi, (m, t, v, p) => parseAsk(t, v, p));
 
-    // 14. Math Operators (FIXED to be safer with word boundaries)
-    code = code.replace(/\s*\/=\/=\s*/g, ' //== '); // Temp placeholder
-    code = code.replace(/\s*\/=\/\s*/g, ' /=~ ');   // Temp placeholder
-    
+    // 14. Math Operators
+    code = code.replace(/\s*\/=\/=\s*/g, ' //== ');
+    code = code.replace(/\s*\/=\/\s*/g, ' /=~ ');
     code = code.replace(/([a-zA-Z_]\w*)\s*\/\/==\s*([a-zA-Z0-9_\(\)\.]+)/g, '$1 = Math.floor($1 / $2)');
     code = code.replace(/([a-zA-Z0-9_\)\]]+)\s*\/=~\s*([a-zA-Z0-9_\(\.]+)/g, 'Math.floor($1 / $2)');
 
@@ -137,7 +138,6 @@ window.compilePyCJ = function(code) {
     // 20. Repeat...Until
     code = code.replace(/\brepeat\s*\{/g, 'do {');
     code = code.replace(/\buntil\s+(.*?)(?=\n)/g, 'while (!($1));');
-    
     // 21. Ternary Operator
     code = code.replace(/\bif\s+(.*?)\s+then\s+(.*?)\s+else\s+(.*?)(?=[;\n\)\],])/g, '(($1) ? ($2) : ($3))');
 
@@ -208,7 +208,6 @@ function translateMatchStatements(code) {
     return newLines.join('\n');
 }
 
-// Execution Environment (ASYNC)
 window.runPyCJ = async function(pycjCode, logCallback, inputCallback) {
     let jsCode = window.compilePyCJ(pycjCode);
     let exitCode = 0;
