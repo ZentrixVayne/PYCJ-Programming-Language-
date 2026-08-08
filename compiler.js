@@ -155,7 +155,7 @@ function translateMatchStatements(code) {
                 } else {
                     if (firstCase) {
                         newLines.push(originalIndent + `if (${matchVar} == ${val}) {`);
-                        firstCase = False;
+                        firstCase = false; // FIXED: Lowercase 'false' for JavaScript
                     } else {
                         newLines.push(originalIndent + `else if (${matchVar} == ${val}) {`);
                     }
