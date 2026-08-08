@@ -1,3 +1,4 @@
+// 1. DEFINE CUSTOM PyCJ SYNTAX HIGHLIGHTER
 CodeMirror.defineMode("pycj", function() {
     return {
         startState: function() { return { inString: false, stringQuote: "" }; },
@@ -87,12 +88,23 @@ greet(name)
 echo("-" * 20)
 halt(0);`;
 
+    // --- AUTOSAVE & URL SHARE LOGIC ---
     const autosaveToggle = document.getElementById("autosave-toggle");
     let isAutosaveOn = localStorage.getItem('pycj_autosave') !== 'false';
     autosaveToggle.checked = isAutosaveOn;
 
     let initialCode = welcomeCode;
-    if (isAutosaveOn) {
+    
+    // Check if code is in URL (Shared Link)
+    const hash = window.location.hash;
+    if (hash.startsWith('#code=')) {
+        let compressed = hash.substring(6);
+        try {
+            initialCode = LZString.decompressFromEncodedURIComponent(compressed) || welcomeCode;
+        } catch (e) {
+            initialCode = welcomeCode;
+        }
+    } else if (isAutosaveOn) {
         initialCode = localStorage.getItem('pycj_code') || welcomeCode;
     } else {
         localStorage.removeItem('pycj_code');
@@ -139,6 +151,11 @@ halt(0);`;
     const menuToggle = document.getElementById("menu-toggle");
     const mainDropdown = document.getElementById("main-dropdown");
     
+    // New Feature Buttons
+    const shareCodeBtn = document.getElementById("share-code-btn");
+    const formatCodeBtn = document.getElementById("format-code-btn");
+    const clearTerminalBtn = document.getElementById("clear-terminal-btn");
+
     const terminalInputContainer = document.getElementById("terminal-input-container");
     const terminalPromptText = document.getElementById("terminal-prompt");
     const terminalInputField = document.getElementById("terminal-input-field");
@@ -155,6 +172,54 @@ halt(0);`;
             localStorage.removeItem('pycj_code');
         }
     });
+
+    // --- NEW FEATURE LOGIC ---
+
+    // 1. Share Code (Compresses to random URL)
+    shareCodeBtn.addEventListener("click", () => {
+        let code = editor.getValue();
+        let compressed = LZString.compressToEncodedURIComponent(code);
+        let baseUrl = window.location.origin + window.location.pathname;
+        let shareUrl = `${baseUrl}#code=${compressed}`;
+        
+        navigator.clipboard.writeText(shareUrl).then(() => {
+            alert("✅ Shareable link copied to clipboard!\n\nSend this link to anyone and they will see your exact code.");
+        }).catch(err => {
+            prompt("Copy this link to share your code:", shareUrl);
+        });
+    });
+
+    // 2. Format Code (Auto-Indent)
+    formatCodeBtn.addEventListener("click", () => {
+        let code = editor.getValue();
+        let lines = code.split('\n');
+        let formattedLines = [];
+        let indentLevel = 0;
+        
+        for (let line of lines) {
+            let trimmed = line.trim();
+            if (trimmed.startsWith('}') ) {
+                indentLevel = Math.max(0, indentLevel - 1);
+            }
+            let formattedLine = '    '.repeat(indentLevel) + trimmed;
+            formattedLines.push(formattedLine);
+            
+            let opens = (trimmed.match(/{/g) || []).length;
+            let closes = (trimmed.match(/}/g) || []).length;
+            indentLevel += (opens - closes);
+            if (indentLevel < 0) indentLevel = 0;
+        }
+        
+        editor.setValue(formattedLines.join('\n'));
+    });
+
+    // 3. Clear Terminal
+    clearTerminalBtn.addEventListener("click", () => {
+        outputDiv.innerHTML = "";
+        addTerminalLine("Terminal Cleared.", "var(--text-console-prompt)");
+    });
+
+    // ------------------------------
 
     function showTerminalView() {
         if (window.matchMedia('(max-width: 1100px)').matches) {
