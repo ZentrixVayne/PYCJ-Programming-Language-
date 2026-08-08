@@ -25,8 +25,8 @@ CodeMirror.defineMode("pycj", function() {
                 return "comment";
             }
             if (stream.match('"') || stream.match("'")) { state.inString = true; state.stringQuote = stream.current(); return "string"; }
-            // ADDED 'halt' to keywords, removed 'end'
-            if (stream.match(/\b(?:imagine|output|ask|if|elif|else|repeat|until|while|for|craft|return|halt|Yes|No|stop|skip|attempt|rescue|lock|then|USE|PYCJ|match)\b/i)) return "keyword";
+            // ADDED 'echo' to keywords, removed 'output'
+            if (stream.match(/\b(?:imagine|echo|ask|if|elif|else|repeat|until|while|for|craft|return|halt|Yes|No|stop|skip|attempt|rescue|lock|then|USE|PYCJ|match)\b/i)) return "keyword";
             if (stream.match(/\b(?:int|float|str|string|bool|random|sqrt|abs|max|min|len|add|remove|pycj)\b/i)) return "builtin";
             if (stream.match(/\b\d+(?:\.\d+)?\b/)) return "number";
             if (stream.match(/[+\-*\/%=<>!&|]+/)) return "operator";
@@ -38,32 +38,32 @@ CodeMirror.defineMode("pycj", function() {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Updated Welcome Code (USE PYCJ, craft, and halt)
+    // Updated Welcome Code (USE PYCJ, craft, halt, and echo)
     const welcomeCode = `USE PYCJ
 
 // Welcome to PyCJ! The easiest programming language.
 ask string name = "What is your name? "
-output("Welcome, {name}!")
+echo("Welcome, {name}!")
 
 lock PI = 3.14
 imagine score = random(1, 100)
-output("You scored: {score}")
+echo("You scored: {score}")
 
 match score {
     100 {
-        output("Perfect Score! You mastered PyCJ!")
+        echo("Perfect Score! You mastered PyCJ!")
     }
     else {
-        output("Keep learning, {name}!")
+        echo("Keep learning, {name}!")
     }
 }
 
 craft greet(user) {
-    output("Hello {user}, enjoy coding!")
+    echo("Hello {user}, enjoy coding!")
 }
 greet(name)
 
-output("-" * 20)
+echo("-" * 20)
 halt(0);`;
 
     // --- AUTOSAVE LOGIC ---
