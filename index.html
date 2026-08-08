@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="author" content="Arshman Anil">
     <title>PyCJ - Professional IDE</title>
-    <link rel="icon" type="image/png" href="logo.png">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=4">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
 </head>
 <body class="dark-theme">
@@ -14,7 +13,11 @@
         <header class="top-navbar">
             <div class="header-left">
                 <div class="branding">
-                    <img src="logo.png" alt="PyCJ Logo" class="brand-icon" onerror="this.style.display='none'">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="#2f81f7"/>
+                        <path d="M2 17L12 22L22 17" stroke="#2f81f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 12L12 17L22 12" stroke="#61afef" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                     <h1>PyCJ <span class="version-badge">v1.0</span></h1>
                 </div>
             </div>
@@ -75,7 +78,6 @@
                 </div>
                 <div id="output" class="console-body">PyCJ v1.0 Terminal Initialized...<br>Waiting for execution.</div>
                 
-                <!-- Inline Terminal Input Bar -->
                 <div class="console-input-container" id="terminal-input-container" style="display: none;">
                     <span class="console-prompt-text" id="terminal-prompt">&gt;</span>
                     <input type="text" id="terminal-input-field" class="console-input-field" placeholder="Type input and press Enter..." autofocus>
@@ -88,14 +90,14 @@
         </footer>
     </div>
 
-    <!-- Scripts -->
+    <!-- Scripts with cache-busters to force refresh -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/mode/simple.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/closebrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/matchbrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/selection/active-line.min.js"></script>
     
-    <script src="compiler.js"></script>
-    <script src="script.js"></script>
+    <script src="compiler.js?v=4"></script>
+    <script src="script.js?v=4"></script>
 </body>
 </html>
