@@ -29,17 +29,20 @@ window.compilePyCJ = function(code) {
     }
     if (/\bhalt\s*\([^)]*\)\s*(?!;)/i.test(cleanCode)) throw new Error("PyCJ Warning: Make sure to put ; at end of halt statement so it work");
 
+    // 4. Smart String Interpolation (Supports functions and dicts inside {})
     code = code.replace(/"([^"]*)"/g, (match, content) => {
-        let n = content.replace(/\{([a-zA-Z_]\w*)\}/g, '${$1}');
+        // Matches anything inside { } that isn't another { or }
+        let n = content.replace(/\{([^{}]+)\}/g, '${$1}');
         return n.includes('${') ? '`' + n + '`' : match;
     });
     code = code.replace(/'([^']*)'/g, (match, content) => {
-        let n = content.replace(/\{([a-zA-Z_]\w*)\}/g, '${$1}');
+        let n = content.replace(/\{([^{}]+)\}/g, '${$1}');
         return n.includes('${') ? '`' + n + '`' : match;
     });
 
     code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|echo|ask|halt|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match|in)\b/gi, (m) => m.toLowerCase());
 
+    // --- 6. DICTIONARY ENGINE ---
     let dictNames = [];
     let dictRegex = /\b(?:imagine|lock)\s+([a-zA-Z_]\w*)\s*=\s*\{/g;
     let m;
@@ -60,6 +63,7 @@ window.compilePyCJ = function(code) {
         if (dictNames.includes(obj)) return `for (let ${k} in ${obj}) {`;
         return `for (let ${k} of ${obj}) {`;
     });
+    // ----------------------------
 
     code = code.replace(/\breturn\s+([a-zA-Z_0-9\.]+(?:\s*,\s*[a-zA-Z_0-9\.]+)+)/g, (match, p1) => 'return [' + p1 + ']');
     code = code.replace(/\bimagine\s+([a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)+)\s*=/g, 'imagine [$1] =');
