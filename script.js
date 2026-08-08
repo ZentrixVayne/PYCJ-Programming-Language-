@@ -25,9 +25,9 @@ CodeMirror.defineMode("pycj", function() {
                 return "comment";
             }
             if (stream.match('"') || stream.match("'")) { state.inString = true; state.stringQuote = stream.current(); return "string"; }
-            // ADDED 'echo' to keywords, removed 'output'
-            if (stream.match(/\b(?:imagine|echo|ask|if|elif|else|repeat|until|while|for|craft|return|halt|Yes|No|stop|skip|attempt|rescue|lock|then|USE|PYCJ|match)\b/i)) return "keyword";
-            if (stream.match(/\b(?:int|float|str|string|bool|random|sqrt|abs|max|min|len|add|remove|pycj)\b/i)) return "builtin";
+            // ADDED 'in' and 'remove'
+            if (stream.match(/\b(?:imagine|echo|ask|if|elif|else|repeat|until|while|for|in|craft|return|halt|Yes|No|stop|skip|attempt|rescue|lock|then|USE|PYCJ|match|remove)\b/i)) return "keyword";
+            if (stream.match(/\b(?:int|float|str|string|bool|random|sqrt|abs|max|min|len|add|pycj)\b/i)) return "builtin";
             if (stream.match(/\b\d+(?:\.\d+)?\b/)) return "number";
             if (stream.match(/[+\-*\/%=<>!&|]+/)) return "operator";
             if (stream.match(/[{}()\[\];,.]/)) return "punctuation";
@@ -38,7 +38,7 @@ CodeMirror.defineMode("pycj", function() {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Updated Welcome Code (USE PYCJ, craft, halt, and echo)
+    // Updated Welcome Code (Added Dictionary Example)
     const welcomeCode = `USE PYCJ
 
 // Welcome to PyCJ! The easiest programming language.
@@ -56,6 +56,24 @@ match score {
     else {
         echo("Keep learning, {name}!")
     }
+}
+
+// Dictionaries in PyCJ
+imagine student = {
+   name = "Arshman"
+   age = 15
+   is_student = Yes
+}
+
+student(name) = name
+student(age) = 16
+student.remove = is_student
+
+echo("Student Name: {student(name)}")
+echo("Student Age: {student(age)}")
+
+for key in student {
+    echo("Key: {key}")
 }
 
 craft greet(user) {
