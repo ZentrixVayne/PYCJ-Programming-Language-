@@ -1,284 +1,273 @@
-// 1. DEFINE CUSTOM PyCJ SYNTAX HIGHLIGHTER
-CodeMirror.defineMode("pycj", function() {
-    return {
-        startState: function() { return { inString: false, stringQuote: "" }; },
-        token: function(stream, state) {
-            if (state.inString) {
-                if (stream.match("{")) {
-                    while (!stream.eol()) {
-                        if (stream.match("}", false)) { stream.next(); return "string-interpolation"; }
-                        stream.next();
+window.compilePyCJ = function(code) {
+    // 1. MANDATORY HEADER CHECK (STRICTLY USE PYCJ)
+    if (!/^\s*USE PYCJ\b/.test(code)) {
+        throw new Error("Write in capital! Make it USE PYCJ");
+    }
+    code = code.replace(/^\s*USE PYCJ\b/, '');
+
+    // 2. Remove Comments Early
+    code = code.replace(/\/\/.*$/gm, '');
+    code = code.replace(/\/\*[\s\S]*?\*\//g, '');
+    code = code.replace(/#.*$/gm, '');
+
+    // 3. Strict Syntax Validation
+    let cleanCode = code.replace(/"([^"]*)"/g, '""').replace(/'([^']*)'/g, "''");
+    const forbidden = {
+        'print': "Use 'echo()' instead of 'print()'.",
+        'console.log': "Use 'echo()' instead of 'console.log()'.",
+        'output': "Use 'echo()' instead of 'output()'.",
+        'let ': "Use 'imagine' instead of 'let'.",
+        'const ': "Use 'lock' instead of 'const'.",
+        'var ': "Use 'imagine' instead of 'var'.",
+        'function ': "Use 'craft' instead of 'function'.",
+        'true': "Use 'Yes' instead of 'true'.",
+        'false': "Use 'No' instead of 'false'.",
+        'break': "Use 'stop' instead of 'break'.",
+        'continue': "Use 'skip' instead of 'continue'.",
+        'try': "Use 'attempt' instead of 'try'.",
+        'catch': "Use 'rescue' instead of 'catch'.",
+        'end': "Use 'halt()' instead of 'end()'."
+    };
+    for (let word in forbidden) {
+        let regex = new RegExp(`\\b${word}\\b`, 'i');
+        if (regex.test(cleanCode)) throw new Error(`Foreign syntax detected! ${forbidden[word]}`);
+    }
+    if (/\bhalt\s*\([^)]*\)\s*(?!;)/i.test(cleanCode)) throw new Error("PyCJ Warning: Make sure to put ; at end of halt statement so it work");
+
+    // 4. Smart String Interpolation ("Hello {name}" -> `Hello ${name}`)
+    code = code.replace(/"([^"]*)"/g, (match, content) => {
+        let newContent = content.replace(/\{([a-zA-Z_]\w*)\}/g, '${$1}');
+        return newContent.includes('${') ? '`' + newContent + '`' : match;
+    });
+    code = code.replace(/'([^']*)'/g, (match, content) => {
+        let newContent = content.replace(/\{([a-zA-Z_]\w*)\}/g, '${$1}');
+        return newContent.includes('${') ? '`' + newContent + '`' : match;
+    });
+
+    // 5. Normalize structural keywords to lowercase
+    code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|echo|ask|halt|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match|in)\b/gi, (m) => m.toLowerCase());
+
+    // --- 6. DICTIONARY ENGINE ---
+    let dictNames = [];
+    let dictRegex = /\b(?:imagine|lock)\s+([a-zA-Z_]\w*)\s*=\s*\{/g;
+    let m;
+    while ((m = dictRegex.exec(code)) !== null) {
+        dictNames.push(m[1]);
+    }
+
+    code = code.replace(/=\s*\{([\s\S]*?)\}/g, (match, content) => {
+        let newContent = content.trim();
+        newContent = newContent.replace(/\n/g, ', ');
+        newContent = newContent.replace(/(\w+)\s*=(?!=)\s*/g, '"$1": ');
+        newContent = newContent.replace(/,\s*$/, '');
+        return `= { ${newContent} }`;
+    });
+
+    dictNames.forEach(name => {
+        let accessRegex = new RegExp(`\\b${name}\\(\\s*(\\w+)\\s*\\)`, 'g');
+        code = code.replace(accessRegex, `${name}.$1`);
+
+        let removeRegex = new RegExp(`\\b${name}\\.remove\\s*=\\s*(\\w+)`, 'g');
+        code = code.replace(removeRegex, `delete ${name}.$1;`);
+    });
+
+    code = code.replace(/for\s+([a-zA-Z_]\w*)\s*,\s*([a-zA-Z_]\w*)\s+in\s+([a-zA-Z_]\w*)\s*\{/g, (match, k, v, obj) => {
+        return `for (let [${k}, ${v}] of Object.entries(${obj})) {`;
+    });
+    code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+([a-zA-Z_]\w*)\s*\{/g, (match, k, obj) => {
+        if (dictNames.includes(obj)) {
+            return `for (let ${k} in ${obj}) {`;
+        }
+        return `for (let ${k} of ${obj}) {`;
+    });
+    // ----------------------------
+
+    // 7. Multiple Return Values (return a, b -> return [a, b])
+    code = code.replace(/\breturn\s+([a-zA-Z_0-9\.]+(?:\s*,\s*[a-zA-Z_0-9\.]+)+)/g, (match, p1) => 'return [' + p1 + ']');
+    // 8. Array Destructuring (imagine x, y = func() -> let [x, y] = func())
+    code = code.replace(/\bimagine\s+([a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)+)\s*=/g, 'imagine [$1] =');
+    // 9. String Multiplication ("-" * 30 OR "*" * i -> "-".repeat(30) OR "*".repeat(i))
+    code = code.replace(/(["'`][^"'`]+["'`])\s*\*\s*([a-zA-Z_]\w*|\d+)/g, '$1.repeat($2)');
+    code = code.replace(/([a-zA-Z_]\w*|\d+)\s*\*\s*(["'`][^"'`]+["'`])/g, '$2.repeat($1)');
+
+    // 10. Map 'craft' to 'function'
+    code = code.replace(/\bcraft\b/g, 'function');
+
+    // 11. Variables & Constants
+    code = code.replace(/\bimagine\b/g, 'let');
+    code = code.replace(/\block\b/g, 'const');
+
+    // 12. Echo & Halt
+    code = code.replace(/\becho\b/g, 'console.log');
+    code = code.replace(/\bhalt\s*\(([^)]*)\)\s*;/g, '__end__($1);');
+
+    // 13. Input Handling (ASYNC)
+    code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*`([^`]*)`/gi, (m, type, varName, promptText) => parseAsk(type, varName, promptText));
+    code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*"([^"]*)"/gi, (m, type, varName, promptText) => parseAsk(type, varName, promptText));
+
+    // 14. Math Operators
+    code = code.replace(/([a-zA-Z_]\w*)\s*\/=\/=\s*([a-zA-Z0-9_\(\)\.]+)/g, '$1 = Math.floor($1 / $2)');
+    code = code.replace(/([a-zA-Z0-9_\)\]]+)\s*\/=\/\s*([a-zA-Z0-9_\(\.]+)/g, 'Math.floor($1 / $2)');
+
+    // 15. Booleans & Logical Operators
+    code = code.replace(/\byes\b/gi, 'true');
+    code = code.replace(/\bno\b/gi, 'false');
+    code = code.replace(/\band\b/gi, '&&');
+    code = code.replace(/\bor\b/gi, '||');
+    code = code.replace(/\bnot\b/gi, '!');
+
+    // 16. Loop Control & Error Handling
+    code = code.replace(/\bstop\b/g, 'break');
+    code = code.replace(/\bskip\b/g, 'continue');
+    code = code.replace(/\battempt\b/g, 'try');
+    code = code.replace(/\brescue\b/g, 'catch(e)');
+
+    // 17. List Methods
+    code = code.replace(/\.add\(/g, '.push(');
+    code = code.replace(/\.len\(\)/g, '.length');
+    code = code.replace(/\.remove\(/g, '.pycjRemove(');
+
+    // 18. C-style For Loop
+    code = code.replace(/for\s*\(\s*(?:int\s+)?([a-zA-Z_]\w*)\s*=\s*([^,]+)\s*,\s*\1\s*(<=?|>=?|==|!=)\s*([^,]+)\s*,\s*\1(\+\+|--)\s*\)/g, 'for (let $1 = $2; $1 $3 $4; $1$5)');
+
+    // 19. PyCJ Range Loop (Explicit Operators: range(1, <=, 5))
+    code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+range\s*\(\s*([^,)]+)\s*,\s*(<=|>=|<|>|!=)\s*,\s*([^,)]+)\s*\)/g, (match, v, s, o, e) => {
+        if (o === '<') return `for (let ${v} = ${s}; ${v} < ${e}; ${v}++)`;
+        if (o === '<=') return `for (let ${v} = ${s}; ${v} <= ${e}; ${v}++)`;
+        if (o === '>') return `for (let ${v} = ${s}; ${v} > ${e}; ${v}--)`;
+        if (o === '>=') return `for (let ${v} = ${s}; ${v} >= ${e}; ${v}--)`;
+        return match;
+    });
+    // Standard Inclusive Range Loop: range(1, 5)
+    code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+range\s*\(\s*([^,)]+)\s*,\s*([^,)]+)\s*\)/g, 'for (let $1 = $2; $1 <= $3; $1++)');
+
+    // 20. Repeat...Until
+    code = code.replace(/\brepeat\s*\{/g, 'do {');
+    code = code.replace(/\buntil\s+(.*?)(?=\n)/g, 'while (!($1));');
+
+    // 21. Ternary Operator
+    code = code.replace(/\bif\s+(.*?)\s+then\s+(.*?)\s+else\s+(.*?)(?=[;\n\)\],])/g, '(($1) ? ($2) : ($3))');
+
+    // 22. Match Statement
+    code = translateMatchStatements(code);
+    code = code.replace(/\belse\s+if\b/g, 'else if');
+
+    return code;
+}
+
+function parseAsk(type, varName, promptText) {
+    type = type.toLowerCase();
+    return `${varName} = await __ask__('${type}', ${JSON.stringify(promptText)});`;
+}
+
+function translateMatchStatements(code) {
+    let lines = code.split('\n');
+    let newLines = [];
+    let inMatch = false;
+    let matchVar = "";
+    let matchBraceDepth = 0;
+    let firstCase = true;
+
+    for (let line of lines) {
+        if (inMatch) {
+            let stripped = line.trim();
+            let opens = (stripped.match(/{/g) || []).length;
+            let closes = (stripped.match(/}/g) || []).length;
+
+            matchBraceDepth += (opens - closes);
+            if (matchBraceDepth <= 0) {
+                inMatch = false;
+                continue; 
+            }
+
+            let caseMatch = stripped.match(/^([^\s}].*?)\s*\{$/);
+            if (caseMatch) {
+                let val = caseMatch[1].trim();
+                let originalIndent = line.match(/^(\s*)/)[1];
+
+                if (val.toLowerCase() === 'else') {
+                    newLines.push(originalIndent + 'else {');
+                } else {
+                    if (firstCase) {
+                        newLines.push(originalIndent + `if (${matchVar} == ${val}) {`);
+                        firstCase = false;
+                    } else {
+                        newLines.push(originalIndent + `else if (${matchVar} == ${val}) {`);
                     }
-                    return "string-interpolation";
                 }
-                if (stream.match("\\" + state.stringQuote)) return "string";
-                if (stream.match(state.stringQuote)) { state.inString = false; return "string"; }
-                stream.next(); return "string";
+            } else {
+                newLines.push(line);
             }
-            if (stream.match("//", false)) { stream.skipToEnd(); return "comment"; }
-            if (stream.match("/*", false)) {
-                stream.next(); stream.next();
-                while (!stream.eol()) {
-                    if (stream.match("*/", false)) { stream.next(); stream.next(); return "comment"; }
-                    stream.next();
+            continue;
+        }
+
+        let matchStart = line.match(/^(\s*)match\s+(.+?)\s*\{/i);
+        if (matchStart) {
+            inMatch = true;
+            matchVar = matchStart[2].trim();
+            matchBraceDepth = 1;
+            firstCase = true;
+            continue;
+        }
+
+        newLines.push(line);
+    }
+    return newLines.join('\n');
+}
+
+// Execution Environment (ASYNC)
+window.runPyCJ = async function(pycjCode, logCallback, inputCallback) {
+    let jsCode = window.compilePyCJ(pycjCode);
+    let exitCode = 0;
+    let error = null;
+    
+    const customConsole = {
+        log: function(...args) {
+            let str = args.map(a => {
+                if (typeof a === 'object' && a !== null) {
+                    try { return JSON.stringify(a); } catch(e) { return String(a); }
                 }
-                return "comment";
-            }
-            if (stream.match('"') || stream.match("'")) { state.inString = true; state.stringQuote = stream.current(); return "string"; }
-            // ADDED 'in' and 'remove'
-            if (stream.match(/\b(?:imagine|echo|ask|if|elif|else|repeat|until|while|for|in|craft|return|halt|Yes|No|stop|skip|attempt|rescue|lock|then|USE|PYCJ|match|remove)\b/i)) return "keyword";
-            if (stream.match(/\b(?:int|float|str|string|bool|random|sqrt|abs|max|min|len|add|pycj)\b/i)) return "builtin";
-            if (stream.match(/\b\d+(?:\.\d+)?\b/)) return "number";
-            if (stream.match(/[+\-*\/%=<>!&|]+/)) return "operator";
-            if (stream.match(/[{}()\[\];,.]/)) return "punctuation";
-            if (stream.match(/[a-zA-Z_]\w*/)) return "variable";
-            stream.next(); return null;
+                return String(a);
+            }).join(' ');
+            logCallback(str, "var(--token-string)"); 
         }
     };
-});
 
-document.addEventListener("DOMContentLoaded", () => {
-    // Updated Welcome Code (Added Lambda/Arrow Function Example)
-    const welcomeCode = `USE PYCJ
+    const __end__ = (code) => { throw { isEnd: true, code: code || 0 }; };
+    const random = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const sqrt = Math.sqrt;
+    const abs = Math.abs;
+    const max = Math.max;
+    const min = Math.min;
 
-// Welcome to PyCJ! The easiest programming language.
-ask string name = "What is your name? "
-echo("Welcome, {name}!")
+    Array.prototype.pycjRemove = function(val) {
+        let index = this.indexOf(val);
+        if (index !== -1) this.splice(index, 1);
+    };
 
-lock PI = 3.14
-imagine score = random(1, 100)
-echo("You scored: {score}")
+    const __ask__ = async (type, promptText) => {
+        let val = await inputCallback(promptText); 
+        if (type === 'int') return parseInt(val) || 0;
+        if (type === 'float') return parseFloat(val) || 0.0;
+        if (type === 'bool') return val.toLowerCase() === 'yes';
+        return val;
+    };
 
-match score {
-    100 {
-        echo("Perfect Score! You mastered PyCJ!")
-    }
-    else {
-        echo("Keep learning, {name}!")
-    }
-}
-
-// Dictionaries in PyCJ
-imagine student = {
-   name = "Arshman"
-   age = 15
-   is_student = Yes
-}
-
-student(name) = name
-student(age) = 16
-student.remove = is_student
-
-echo("Student Name: {student(name)}")
-echo("Student Age: {student(age)}")
-
-for key in student {
-    echo("Key: {key}")
-}
-
-// Lambda Functions (Anonymous Functions)
-imagine adder = (a, b) => {
-    return a + b
-}
-echo("5 + 10 = {adder(5, 10)}")
-
-craft greet(user) {
-    echo("Hello {user}, enjoy coding!")
-}
-greet(name)
-
-echo("-" * 20)
-halt(0);`;
-
-    // --- AUTOSAVE LOGIC ---
-    const autosaveToggle = document.getElementById("autosave-toggle");
-    let isAutosaveOn = localStorage.getItem('pycj_autosave') !== 'false';
-    autosaveToggle.checked = isAutosaveOn;
-
-    let initialCode = welcomeCode;
-    if (isAutosaveOn) {
-        initialCode = localStorage.getItem('pycj_code') || welcomeCode;
-    } else {
-        localStorage.removeItem('pycj_code');
-    }
-
-    document.getElementById("code-editor").value = initialCode;
-
-    const editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
-        lineNumbers: true, indentUnit: 4, mode: "pycj", theme: "pycj",
-        styleActiveLine: true, autoCloseBrackets: { pairs: "()[]{}''\"\"", explode: "" }, matchBrackets: true,
-        extraKeys: {
-            "Ctrl-Enter": () => runCode(), "Cmd-Enter": () => runCode(),
-            "Tab": (cm) => cm.replaceSelection("    ", "end"),
-            "Enter": (cm) => {
-                const cursor = cm.getCursor();
-                const lineText = cm.getLine(cursor.line);
-                const beforeCursor = lineText.substring(0, cursor.ch);
-                const afterCursor = lineText.substring(cursor.ch);
-                const endsWithBlock = beforeCursor.trim().endsWith("{") || beforeCursor.trim().endsWith(":");
-                const hasClosingBracket = afterCursor.startsWith("}") || afterCursor.startsWith(")") || afterCursor.startsWith("]");
-                const currentIndentMatch = lineText.match(/^\s*/);
-                let indent = currentIndentMatch ? currentIndentMatch[0] : "";
-                let insertText = "\n" + indent;
-                if (endsWithBlock) insertText += "    ";
-                if (hasClosingBracket) insertText += "\n" + indent;
-                cm.replaceSelection(insertText, "end");
-                let newLine = cursor.line + 1;
-                let newCh = indent.length;
-                if (endsWithBlock) newCh += 4;
-                cm.setCursor({ line: newLine, ch: newCh });
+    try {
+        const asyncWrapper = `return (async () => { ${jsCode} })();`;
+        const func = new Function('console', '__end__', 'random', 'sqrt', 'abs', 'max', 'min', '__ask__', asyncWrapper);
+        await func(customConsole, __end__, random, sqrt, abs, max, min, __ask__);
+    } catch (e) {
+        if (e.isEnd) {
+            exitCode = e.code;
+        } else {
+            error = e.message;
+            if (error.includes("is not defined")) {
+                error = error.replace(" is not defined", " is not defined (Check for missing variables or typos)");
             }
+            exitCode = 1;
         }
-    });
-
-    const outputDiv = document.getElementById("output");
-    const runBtn = document.getElementById("run-btn");
-    const themeToggle = document.getElementById("theme-toggle");
-    const workspace = document.getElementById("workspace");
-    const tabCode = document.getElementById("tab-code");
-    const tabConsole = document.getElementById("tab-console");
-    const uploadBtn = document.getElementById("upload-btn");
-    const downloadBtn = document.getElementById("download-btn");
-    const fileInput = document.getElementById("file-input");
-    const menuToggle = document.getElementById("menu-toggle");
-    const mainDropdown = document.getElementById("main-dropdown");
+    }
     
-    const terminalInputContainer = document.getElementById("terminal-input-container");
-    const terminalPromptText = document.getElementById("terminal-prompt");
-    const terminalInputField = document.getElementById("terminal-input-field");
-
-    menuToggle.addEventListener("click", (e) => { e.stopPropagation(); mainDropdown.classList.toggle("active"); });
-    document.addEventListener("click", (e) => {
-        if (!mainDropdown.contains(e.target) && e.target !== menuToggle) mainDropdown.classList.remove("active");
-    });
-
-    autosaveToggle.addEventListener("change", () => {
-        isAutosaveOn = autosaveToggle.checked;
-        localStorage.setItem('pycj_autosave', isAutosaveOn);
-        if (!isAutosaveOn) {
-            localStorage.removeItem('pycj_code');
-        }
-    });
-
-    function showTerminalView() {
-        if (window.matchMedia('(max-width: 1100px)').matches) {
-            tabCode.classList.remove("active"); tabConsole.classList.add("active");
-            workspace.classList.remove("show-editor"); workspace.classList.add("show-console");
-        }
-    }
-
-    let saveTimeout;
-    editor.on("change", () => {
-        if (isAutosaveOn) {
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => localStorage.setItem('pycj_code', editor.getValue()), 500);
-        }
-    });
-
-    uploadBtn.addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => { editor.setValue(event.target.result); if (isAutosaveOn) localStorage.setItem('pycj_code', event.target.result); };
-        reader.readAsText(file);
-    });
-
-    downloadBtn.addEventListener("click", () => {
-        const blob = new Blob([editor.getValue()], {type: "text/plain"});
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob); a.download = "pycj_code.txt"; a.click(); URL.revokeObjectURL(a.href);
-    });
-
-    themeToggle.addEventListener("click", () => {
-        document.body.classList.toggle("light-theme"); document.body.classList.toggle("dark-theme");
-    });
-
-    tabCode.addEventListener("click", () => {
-        tabCode.classList.add("active"); tabConsole.classList.remove("active");
-        workspace.classList.remove("show-console"); workspace.classList.add("show-editor");
-        setTimeout(() => editor.refresh(), 10);
-    });
-    tabConsole.addEventListener("click", () => {
-        tabConsole.classList.add("active"); tabCode.classList.remove("active");
-        workspace.classList.remove("show-editor"); workspace.classList.add("show-console");
-    });
-
-    function addTerminalLine(text, color = "var(--text-console)") {
-        const lineDiv = document.createElement("div");
-        lineDiv.className = "console-line"; lineDiv.style.color = color; lineDiv.innerText = text;
-        outputDiv.appendChild(lineDiv); outputDiv.scrollTop = outputDiv.scrollHeight;
-    }
-
-    function waitForInput(promptText) {
-        return new Promise((resolve) => {
-            terminalPromptText.innerText = promptText;
-            terminalInputContainer.style.display = "flex";
-            terminalInputField.value = "";
-            terminalInputField.focus();
-
-            function handleSubmit(e) {
-                if (e.key === "Enter") {
-                    const val = terminalInputField.value;
-                    terminalInputContainer.style.display = "none";
-                    terminalInputField.removeEventListener("keydown", handleSubmit);
-                    addTerminalLine(promptText + val, "var(--text-console-prompt)");
-                    resolve(val);
-                }
-            }
-            terminalInputField.addEventListener("keydown", handleSubmit);
-        });
-    }
-
-    function setRunState() {
-        runBtn.disabled = false; runBtn.classList.remove("btn-stop"); runBtn.classList.add("btn-primary");
-        runBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg> Run`;
-    }
-
-    function setStopState() {
-        runBtn.disabled = false; runBtn.classList.remove("btn-primary"); runBtn.classList.add("btn-stop");
-        runBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"></path></svg> Stop`;
-    }
-
-    async function runCode() {
-        if (runBtn.classList.contains("btn-stop")) {
-            setRunState();
-            addTerminalLine("--- Execution Stopped By User ---", "var(--error-color)");
-            return;
-        }
-
-        const code = editor.getValue();
-        setStopState();
-        showTerminalView();
-        outputDiv.innerHTML = "";
-        addTerminalLine("--- Executing PyCJ Script ---", "var(--accent-color)");
-        
-        await new Promise(r => setTimeout(r, 50));
-
-        try {
-            const result = await window.runPyCJ(code, addTerminalLine, waitForInput);
-
-            if (result.error) {
-                const errDiv = document.createElement("div");
-                errDiv.className = "console-error-box";
-                errDiv.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0; margin-right: 8px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg> ${result.error}`;
-                outputDiv.appendChild(errDiv);
-            } else {
-                const exitDiv = document.createElement("div");
-                exitDiv.className = "console-exit-box";
-                exitDiv.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path></svg> Code returned with value of ${result.exitCode}`;
-                outputDiv.appendChild(exitDiv);
-            }
-        } catch (error) {
-            const errDiv = document.createElement("div");
-            errDiv.className = "console-error-box";
-            errDiv.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0; margin-right: 8px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg> ${error.message}`;
-            outputDiv.appendChild(errDiv);
-        } finally {
-            setRunState();
-            outputDiv.scrollTop = outputDiv.scrollHeight;
-        }
-    }
-
-    runBtn.addEventListener("click", runCode);
-});
+    return { exitCode: exitCode, error: error, debug_js: jsCode };
+}
