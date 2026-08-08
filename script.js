@@ -25,7 +25,8 @@ CodeMirror.defineMode("pycj", function() {
                 return "comment";
             }
             if (stream.match('"') || stream.match("'")) { state.inString = true; state.stringQuote = stream.current(); return "string"; }
-            if (stream.match(/\b(?:imagine|output|ask|if|elif|else|repeat|until|while|for|function|return|end|Yes|No|stop|skip|attempt|rescue|lock|then|use|match)\b/i)) return "keyword";
+            // ADDED 'craft' to keywords
+            if (stream.match(/\b(?:imagine|output|ask|if|elif|else|repeat|until|while|for|craft|return|end|Yes|No|stop|skip|attempt|rescue|lock|then|USE|PYCJ|match)\b/i)) return "keyword";
             if (stream.match(/\b(?:int|float|str|string|bool|random|sqrt|abs|max|min|len|add|remove|pycj)\b/i)) return "builtin";
             if (stream.match(/\b\d+(?:\.\d+)?\b/)) return "number";
             if (stream.match(/[+\-*\/%=<>!&|]+/)) return "operator";
@@ -37,7 +38,8 @@ CodeMirror.defineMode("pycj", function() {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-    const welcomeCode = `use pycj
+    // Updated Welcome Code (USE PYCJ and craft)
+    const welcomeCode = `USE PYCJ
 
 // Welcome to PyCJ! The easiest programming language.
 ask string name = "What is your name? "
@@ -56,7 +58,7 @@ match score {
     }
 }
 
-function greet(user) {
+craft greet(user) {
     output("Hello {user}, enjoy coding!")
 }
 greet(name)
@@ -117,7 +119,6 @@ end(0);`;
     const menuToggle = document.getElementById("menu-toggle");
     const mainDropdown = document.getElementById("main-dropdown");
     
-    // Terminal Input Elements
     const terminalInputContainer = document.getElementById("terminal-input-container");
     const terminalPromptText = document.getElementById("terminal-prompt");
     const terminalInputField = document.getElementById("terminal-input-field");
@@ -185,7 +186,6 @@ end(0);`;
         outputDiv.appendChild(lineDiv); outputDiv.scrollTop = outputDiv.scrollHeight;
     }
 
-    // --- INLINE TERMINAL INPUT LOGIC ---
     function waitForInput(promptText) {
         return new Promise((resolve) => {
             terminalPromptText.innerText = promptText;
@@ -232,7 +232,6 @@ end(0);`;
         await new Promise(r => setTimeout(r, 50));
 
         try {
-            // Pass addTerminalLine and waitForInput to the compiler
             const result = await window.runPyCJ(code, addTerminalLine, waitForInput);
 
             if (result.error) {
