@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="author" content="Arshman Anil">
     <title>PyCJ - Professional IDE</title>
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=5">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
 </head>
 <body class="dark-theme">
@@ -44,6 +44,10 @@
                                 <span class="switch-slider"></span>
                             </label>
                         </div>
+                        <div class="dropdown-divider"></div>
+                        <button id="share-code-btn" class="dropdown-item">🔗 Share Code</button>
+                        <button id="format-code-btn" class="dropdown-item">✨ Format Code</button>
+                        <button id="clear-terminal-btn" class="dropdown-item">🧹 Clear Terminal</button>
                         <div class="dropdown-divider"></div>
                         <button id="theme-toggle" class="dropdown-item">🌓 Toggle Theme</button>
                         <button id="upload-btn" class="dropdown-item">📂 Upload File</button>
@@ -90,14 +94,17 @@
         </footer>
     </div>
 
-    <!-- Scripts with cache-busters to force refresh -->
+    <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/mode/simple.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/closebrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/matchbrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/selection/active-line.min.js"></script>
     
-    <script src="compiler.js?v=4"></script>
-    <script src="script.js?v=4"></script>
+    <!-- LZ-String for Code Compression/Sharing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+    
+    <script src="compiler.js?v=5"></script>
+    <script src="script.js?v=5"></script>
 </body>
 </html>
