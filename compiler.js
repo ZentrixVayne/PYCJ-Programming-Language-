@@ -1,9 +1,9 @@
 window.compilePyCJ = function(code) {
-    // 1. MANDATORY HEADER CHECK
-    if (!code.trim().toLowerCase().startsWith('use pycj')) {
-        throw new Error("Add 'USE PYCJ' at first to make it use proper");
+    // 1. MANDATORY HEADER CHECK (STRICTLY USE PYCJ)
+    if (!/^\s*USE PYCJ\b/.test(code)) {
+        throw new Error("Write in capital! Make it USE PYCJ");
     }
-    code = code.replace(/^\s*use\s+pycj\b/i, '');
+    code = code.replace(/^\s*USE PYCJ\b/, '');
 
     // 2. Remove Comments Early
     code = code.replace(/\/\/.*$/gm, '');
@@ -18,6 +18,7 @@ window.compilePyCJ = function(code) {
         'let ': "Use 'imagine' instead of 'let'.",
         'const ': "Use 'lock' instead of 'const'.",
         'var ': "Use 'imagine' instead of 'var'.",
+        'function ': "Use 'craft' instead of 'function'.",
         'true': "Use 'Yes' instead of 'true'.",
         'false': "Use 'No' instead of 'false'.",
         'break': "Use 'stop' instead of 'break'.",
@@ -41,8 +42,8 @@ window.compilePyCJ = function(code) {
         return newContent.includes('${') ? '`' + newContent + '`' : match;
     });
 
-    // 5. Normalize structural keywords to lowercase
-    code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|function|imagine|output|ask|end|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match)\b/gi, (m) => m.toLowerCase());
+    // 5. Normalize structural keywords to lowercase (ADDED 'craft')
+    code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|output|ask|end|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match)\b/gi, (m) => m.toLowerCase());
 
     // 6. Multiple Return Values (return a, b -> return [a, b])
     code = code.replace(/\breturn\s+([a-zA-Z_0-9\.]+(?:\s*,\s*[a-zA-Z_0-9\.]+)+)/g, (match, p1) => 'return [' + p1 + ']');
@@ -52,44 +53,47 @@ window.compilePyCJ = function(code) {
     code = code.replace(/(["'`][^"'`]+["'`])\s*\*\s*([a-zA-Z_]\w*|\d+)/g, '$1.repeat($2)');
     code = code.replace(/([a-zA-Z_]\w*|\d+)\s*\*\s*(["'`][^"'`]+["'`])/g, '$2.repeat($1)');
 
-    // 9. Variables & Constants
+    // 9. Map 'craft' to 'function'
+    code = code.replace(/\bcraft\b/g, 'function');
+
+    // 10. Variables & Constants
     code = code.replace(/\bimagine\b/g, 'let');
     code = code.replace(/\block\b/g, 'const');
 
-    // 10. Output & End
+    // 11. Output & End
     code = code.replace(/\boutput\b/g, 'console.log');
     code = code.replace(/\bend\s*\(([^)]*)\)\s*;/g, '__end__($1);');
 
-    // 11. Input Handling (NOW ASYNC!)
+    // 12. Input Handling (ASYNC)
     code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*`([^`]*)`/gi, (m, type, varName, promptText) => parseAsk(type, varName, promptText));
     code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*"([^"]*)"/gi, (m, type, varName, promptText) => parseAsk(type, varName, promptText));
 
-    // 12. Math Operators
+    // 13. Math Operators
     code = code.replace(/([a-zA-Z_]\w*)\s*\/=\/=\s*([a-zA-Z0-9_\(\)\.]+)/g, '$1 = Math.floor($1 / $2)');
     code = code.replace(/([a-zA-Z0-9_\)\]]+)\s*\/=\/\s*([a-zA-Z0-9_\(\.]+)/g, 'Math.floor($1 / $2)');
 
-    // 13. Booleans & Logical Operators
+    // 14. Booleans & Logical Operators
     code = code.replace(/\byes\b/gi, 'true');
     code = code.replace(/\bno\b/gi, 'false');
     code = code.replace(/\band\b/gi, '&&');
     code = code.replace(/\bor\b/gi, '||');
     code = code.replace(/\bnot\b/gi, '!');
 
-    // 14. Loop Control & Error Handling
+    // 15. Loop Control & Error Handling
     code = code.replace(/\bstop\b/g, 'break');
     code = code.replace(/\bskip\b/g, 'continue');
     code = code.replace(/\battempt\b/g, 'try');
     code = code.replace(/\brescue\b/g, 'catch(e)');
 
-    // 15. List Methods
+    // 16. List Methods
     code = code.replace(/\.add\(/g, '.push(');
     code = code.replace(/\.len\(\)/g, '.length');
     code = code.replace(/\.remove\(/g, '.pycjRemove(');
 
-    // 16. C-style For Loop
+    // 17. C-style For Loop
     code = code.replace(/for\s*\(\s*(?:int\s+)?([a-zA-Z_]\w*)\s*=\s*([^,]+)\s*,\s*\1\s*(<=?|>=?|==|!=)\s*([^,]+)\s*,\s*\1(\+\+|--)\s*\)/g, 'for (let $1 = $2; $1 $3 $4; $1$5)');
 
-    // 17. PyCJ Range Loop (Explicit Operators: range(1, <=, 5))
+    // 18. PyCJ Range Loop (Explicit Operators: range(1, <=, 5))
     code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+range\s*\(\s*([^,)]+)\s*,\s*(<=|>=|<|>|!=)\s*,\s*([^,)]+)\s*\)/g, (match, v, s, o, e) => {
         if (o === '<') return `for (let ${v} = ${s}; ${v} < ${e}; ${v}++)`;
         if (o === '<=') return `for (let ${v} = ${s}; ${v} <= ${e}; ${v}++)`;
@@ -100,14 +104,14 @@ window.compilePyCJ = function(code) {
     // Standard Inclusive Range Loop: range(1, 5)
     code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+range\s*\(\s*([^,)]+)\s*,\s*([^,)]+)\s*\)/g, 'for (let $1 = $2; $1 <= $3; $1++)');
 
-    // 18. Repeat...Until
+    // 19. Repeat...Until
     code = code.replace(/\brepeat\s*\{/g, 'do {');
     code = code.replace(/\buntil\s+(.*?)(?=\n)/g, 'while (!($1));');
 
-    // 19. Ternary Operator
+    // 20. Ternary Operator
     code = code.replace(/\bif\s+(.*?)\s+then\s+(.*?)\s+else\s+(.*?)(?=[;\n\)\],])/g, '(($1) ? ($2) : ($3))');
 
-    // 20. Match Statement
+    // 21. Match Statement
     code = translateMatchStatements(code);
     code = code.replace(/\belse\s+if\b/g, 'else if');
 
@@ -116,7 +120,6 @@ window.compilePyCJ = function(code) {
 
 function parseAsk(type, varName, promptText) {
     type = type.toLowerCase();
-    // Uses await __ask__ to pause execution and wait for terminal input
     return `${varName} = await __ask__('${type}', ${JSON.stringify(promptText)});`;
 }
 
@@ -175,7 +178,7 @@ function translateMatchStatements(code) {
     return newLines.join('\n');
 }
 
-// Execution Environment (NOW ASYNC)
+// Execution Environment (ASYNC)
 window.runPyCJ = async function(pycjCode, logCallback, inputCallback) {
     let jsCode = window.compilePyCJ(pycjCode);
     let exitCode = 0;
@@ -189,7 +192,7 @@ window.runPyCJ = async function(pycjCode, logCallback, inputCallback) {
                 }
                 return String(a);
             }).join(' ');
-            logCallback(str, "var(--token-string)"); // Live output to terminal
+            logCallback(str, "var(--token-string)"); 
         }
     };
 
@@ -206,7 +209,7 @@ window.runPyCJ = async function(pycjCode, logCallback, inputCallback) {
     };
 
     const __ask__ = async (type, promptText) => {
-        let val = await inputCallback(promptText); // Calls the UI input function
+        let val = await inputCallback(promptText); 
         if (type === 'int') return parseInt(val) || 0;
         if (type === 'float') return parseFloat(val) || 0.0;
         if (type === 'bool') return val.toLowerCase() === 'yes';
