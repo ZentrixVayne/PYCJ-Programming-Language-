@@ -13,8 +13,9 @@ window.compilePyCJ = function(code) {
     // 3. Strict Syntax Validation
     let cleanCode = code.replace(/"([^"]*)"/g, '""').replace(/'([^']*)'/g, "''");
     const forbidden = {
-        'print': "Use 'output()' instead of 'print()'.",
-        'console.log': "Use 'output()' instead of 'console.log()'.",
+        'print': "Use 'echo()' instead of 'print()'.",
+        'console.log': "Use 'echo()' instead of 'console.log()'.",
+        'output': "Use 'echo()' instead of 'output()'.",
         'let ': "Use 'imagine' instead of 'let'.",
         'const ': "Use 'lock' instead of 'const'.",
         'var ': "Use 'imagine' instead of 'var'.",
@@ -43,8 +44,8 @@ window.compilePyCJ = function(code) {
         return newContent.includes('${') ? '`' + newContent + '`' : match;
     });
 
-    // 5. Normalize structural keywords to lowercase (ADDED 'halt')
-    code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|output|ask|halt|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match)\b/gi, (m) => m.toLowerCase());
+    // 5. Normalize structural keywords to lowercase
+    code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|echo|ask|halt|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match)\b/gi, (m) => m.toLowerCase());
 
     // 6. Multiple Return Values (return a, b -> return [a, b])
     code = code.replace(/\breturn\s+([a-zA-Z_0-9\.]+(?:\s*,\s*[a-zA-Z_0-9\.]+)+)/g, (match, p1) => 'return [' + p1 + ']');
@@ -61,8 +62,8 @@ window.compilePyCJ = function(code) {
     code = code.replace(/\bimagine\b/g, 'let');
     code = code.replace(/\block\b/g, 'const');
 
-    // 11. Output & Halt
-    code = code.replace(/\boutput\b/g, 'console.log');
+    // 11. Echo & Halt
+    code = code.replace(/\becho\b/g, 'console.log');
     code = code.replace(/\bhalt\s*\(([^)]*)\)\s*;/g, '__end__($1);');
 
     // 12. Input Handling (ASYNC)
@@ -154,7 +155,7 @@ function translateMatchStatements(code) {
                 } else {
                     if (firstCase) {
                         newLines.push(originalIndent + `if (${matchVar} == ${val}) {`);
-                        firstCase = false;
+                        firstCase = False;
                     } else {
                         newLines.push(originalIndent + `else if (${matchVar} == ${val}) {`);
                     }
