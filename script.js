@@ -25,8 +25,8 @@ CodeMirror.defineMode("pycj", function() {
                 return "comment";
             }
             if (stream.match('"') || stream.match("'")) { state.inString = true; state.stringQuote = stream.current(); return "string"; }
-            // ADDED 'craft' to keywords
-            if (stream.match(/\b(?:imagine|output|ask|if|elif|else|repeat|until|while|for|craft|return|end|Yes|No|stop|skip|attempt|rescue|lock|then|USE|PYCJ|match)\b/i)) return "keyword";
+            // ADDED 'halt' to keywords, removed 'end'
+            if (stream.match(/\b(?:imagine|output|ask|if|elif|else|repeat|until|while|for|craft|return|halt|Yes|No|stop|skip|attempt|rescue|lock|then|USE|PYCJ|match)\b/i)) return "keyword";
             if (stream.match(/\b(?:int|float|str|string|bool|random|sqrt|abs|max|min|len|add|remove|pycj)\b/i)) return "builtin";
             if (stream.match(/\b\d+(?:\.\d+)?\b/)) return "number";
             if (stream.match(/[+\-*\/%=<>!&|]+/)) return "operator";
@@ -38,7 +38,7 @@ CodeMirror.defineMode("pycj", function() {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Updated Welcome Code (USE PYCJ and craft)
+    // Updated Welcome Code (USE PYCJ, craft, and halt)
     const welcomeCode = `USE PYCJ
 
 // Welcome to PyCJ! The easiest programming language.
@@ -64,7 +64,7 @@ craft greet(user) {
 greet(name)
 
 output("-" * 20)
-end(0);`;
+halt(0);`;
 
     // --- AUTOSAVE LOGIC ---
     const autosaveToggle = document.getElementById("autosave-toggle");
