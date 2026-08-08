@@ -24,13 +24,14 @@ window.compilePyCJ = function(code) {
         'break': "Use 'stop' instead of 'break'.",
         'continue': "Use 'skip' instead of 'continue'.",
         'try': "Use 'attempt' instead of 'try'.",
-        'catch': "Use 'rescue' instead of 'catch'."
+        'catch': "Use 'rescue' instead of 'catch'.",
+        'end': "Use 'halt()' instead of 'end()'."
     };
     for (let word in forbidden) {
         let regex = new RegExp(`\\b${word}\\b`, 'i');
         if (regex.test(cleanCode)) throw new Error(`Foreign syntax detected! ${forbidden[word]}`);
     }
-    if (/\bend\s*\([^)]*\)\s*(?!;)/i.test(cleanCode)) throw new Error("PyCJ Warning: Make sure to put ; at end of end statement so it work");
+    if (/\bhalt\s*\([^)]*\)\s*(?!;)/i.test(cleanCode)) throw new Error("PyCJ Warning: Make sure to put ; at end of halt statement so it work");
 
     // 4. Smart String Interpolation ("Hello {name}" -> `Hello ${name}`)
     code = code.replace(/"([^"]*)"/g, (match, content) => {
@@ -42,8 +43,8 @@ window.compilePyCJ = function(code) {
         return newContent.includes('${') ? '`' + newContent + '`' : match;
     });
 
-    // 5. Normalize structural keywords to lowercase (ADDED 'craft')
-    code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|output|ask|end|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match)\b/gi, (m) => m.toLowerCase());
+    // 5. Normalize structural keywords to lowercase (ADDED 'halt')
+    code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|output|ask|halt|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match)\b/gi, (m) => m.toLowerCase());
 
     // 6. Multiple Return Values (return a, b -> return [a, b])
     code = code.replace(/\breturn\s+([a-zA-Z_0-9\.]+(?:\s*,\s*[a-zA-Z_0-9\.]+)+)/g, (match, p1) => 'return [' + p1 + ']');
@@ -60,9 +61,9 @@ window.compilePyCJ = function(code) {
     code = code.replace(/\bimagine\b/g, 'let');
     code = code.replace(/\block\b/g, 'const');
 
-    // 11. Output & End
+    // 11. Output & Halt
     code = code.replace(/\boutput\b/g, 'console.log');
-    code = code.replace(/\bend\s*\(([^)]*)\)\s*;/g, '__end__($1);');
+    code = code.replace(/\bhalt\s*\(([^)]*)\)\s*;/g, '__end__($1);');
 
     // 12. Input Handling (ASYNC)
     code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*`([^`]*)`/gi, (m, type, varName, promptText) => parseAsk(type, varName, promptText));
