@@ -184,15 +184,13 @@ function translateMatchStatements(code) {
     return newLines.join('\n');
 }
 
-// --- NEW: STATIC SYNTAX LINTER ---
 function lintSyntax(code) {
     let errors = [];
     let lines = code.split('\n');
-    let stack = []; // Tracks {, (, [
+    let stack = []; 
     
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i];
-        // Remove strings so brackets inside strings don't count
         let cleanLine = line.replace(/"([^"\\]|\\.)*"/g, '""').replace(/'([^'\\]|\\.)*'/g, "''").replace(/`([^`\\]|\\.)*`/g, "``");
         
         for (let char of cleanLine) {
@@ -200,61 +198,65 @@ function lintSyntax(code) {
                 stack.push({ char, line: i + 1 });
             } else if (char === '}' || char === ')' || char === ']') {
                 if (stack.length === 0) {
-                    errors.push({ msg: `Unexpected closing bracket '${char}'`, line: i + 1 });
+                    let expected = char === '}' ? '{' : (char === ')' ? '(' : '[');
+                    errors.push({ msg: `Unexpected closing bracket '${char}'`, line: i + 1, fix: `Remove the extra '${char}' on line ${i+1}.` });
                 } else {
                     let last = stack.pop();
                     let expected = char === '}' ? '{' : (char === ')' ? '(' : '[');
                     if (last.char !== expected) {
-                        errors.push({ msg: `Mismatched bracket: expected '${expected}' but found '${char}'`, line: i + 1 });
+                        errors.push({ msg: `Mismatched bracket: expected '${expected}' but found '${char}'`, line: i + 1, fix: `Change '${char}' to the correct closing bracket.` });
                     }
                 }
             }
         }
     }
     
-    // Any brackets left in the stack were never closed
     stack.forEach(item => {
-        errors.push({ msg: `Missing closing bracket for '${item.char}'`, line: item.line });
+        let closeChar = item.char === '{' ? '}' : (item.char === '(' ? ')' : ']');
+        errors.push({ msg: `Missing closing bracket for '${item.char}'`, line: item.line, fix: `Add a '${closeChar}' somewhere after line ${item.line} to close the block.` });
     });
     
     return errors;
 }
 
-// --- NEW: RUNTIME ERROR FORMATTER ---
 function formatRuntimeError(e, originalCode) {
     let jsLine = 1;
-    // JS stack traces contain the line number in the format <anonymous>:LINE:COL
     let stackMatch = e.stack.match(/<anonymous>:(\d+):(\d+)/);
     if (stackMatch) {
         jsLine = parseInt(stackMatch[1]);
     }
 
-    // Map JS line back to PyCJ line. (Our async wrapper adds 1 line of overhead at the top, so we subtract 1)
     let pycjLine = jsLine - 1; 
     let pycjLines = originalCode.split('\n');
     let lineText = pycjLines[pycjLine - 1] || "Unknown Line";
     
     let msg = e.message;
     let errorWord = null;
+    let fix = "Check the syntax on this line.";
 
-    // Translate JS errors to PyCJ errors
     if (e instanceof ReferenceError) {
         errorWord = msg.replace(" is not defined", "").trim();
-        msg = `Unknown variable or function '${errorWord}'`;
+        msg = `Variable or function '${errorWord}' is not defined.`;
+        fix = `💡 Suggestion: If it's a variable, declare it first using 'imagine ${errorWord} = value'. If it's a function, define it using 'craft ${errorWord}() { ... }'.`;
     } else if (e instanceof TypeError) {
         if (msg.includes("is not a function")) {
             errorWord = msg.replace(" is not a function", "").trim();
-            msg = `Invalid function call: '${errorWord}' is not a function`;
+            msg = `'${errorWord}' is not a function.`;
+            fix = `💡 Suggestion: You are trying to call '${errorWord}()' but it hasn't been defined as a function. Define it using 'craft ${errorWord}() { ... }'.`;
         } else if (msg.includes("Cannot read properties of undefined")) {
-            msg = `Invalid dictionary or object access: ${msg}`;
+            let match = msg.match(/reading '([^']+)'/);
+            errorWord = match ? match[1] : "key";
+            msg = `Invalid dictionary or object access: key '${errorWord}' does not exist.`;
+            fix = `💡 Suggestion: The key '${errorWord}' doesn't exist in this dictionary. Add it first using 'dict_name(${errorWord}) = value'.`;
         } else {
             msg = `Type Error: ${msg}`;
+            fix = `💡 Suggestion: Make sure you are using the correct data type for this operation.`;
         }
     } else if (e instanceof SyntaxError) {
         msg = `Syntax Error: ${msg}`;
+        fix = `💡 Suggestion: Check for missing brackets, parentheses, or quotes on this line.`;
     }
 
-    // Calculate the column for the caret (^^^^^)
     let col = 1;
     let caretLen = 5;
     if (errorWord && lineText.includes(errorWord)) {
@@ -272,12 +274,12 @@ function formatRuntimeError(e, originalCode) {
         line: pycjLine,
         col: col,
         snippet: lineText.trim(),
-        caret: caretStr.trim()
+        caret: caretStr.trim(),
+        fix: fix
     };
 }
 
 window.runPyCJ = async function(pycjCode, logCallback, inputCallback) {
-    // 0. Run Static Linter First (Catches missing } etc.)
     let syntaxErrors = lintSyntax(pycjCode);
     if (syntaxErrors.length > 0) {
         return { error: { type: "PyCJMultiError", errors: syntaxErrors } };
@@ -287,7 +289,7 @@ window.runPyCJ = async function(pycjCode, logCallback, inputCallback) {
     try {
         jsCode = window.compilePyCJ(pycjCode);
     } catch (e) {
-        return { error: { type: "PyCJError", message: e.message, line: 0, col: 0, snippet: "", caret: "" } };
+        return { error: { type: "PyCJError", message: e.message, line: 0, col: 0, snippet: "", caret: "", fix: "" } };
     }
     
     let exitCode = 0;
