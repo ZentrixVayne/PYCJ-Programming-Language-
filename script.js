@@ -1,4 +1,4 @@
-// 1. DEFINE CUSTOM PyCJ SYNTAX HIGHLIGHTER (Added 'class', 'setup', 'me', 'new')
+// 1. DEFINE CUSTOM PyCJ SYNTAX HIGHLIGHTER
 CodeMirror.defineMode("pycj", function() {
     return {
         startState: function() { return { inString: false, stringQuote: "" }; },
@@ -25,8 +25,7 @@ CodeMirror.defineMode("pycj", function() {
                 return "comment";
             }
             if (stream.match('"') || stream.match("'")) { state.inString = true; state.stringQuote = stream.current(); return "string"; }
-            // ADDED 'class', 'setup', 'me', 'new'
-            if (stream.match(/\b(?:imagine|echo|ask|if|elif|else|repeat|until|while|for|in|craft|return|halt|Yes|No|stop|skip|attempt|rescue|lock|then|USE|PyCJ|match|remove|class|setup|me|new)\b/i)) return "keyword";
+            if (stream.match(/\b(?:imagine|echo|ask|if|elif|else|repeat|until|while|for|in|craft|return|halt|Yes|No|stop|skip|attempt|rescue|lock|then|USE|PyCJ|match|remove)\b/i)) return "keyword";
             if (stream.match(/\b(?:int|float|str|string|bool|random|sqrt|abs|max|min|len|add|pycj)\b/i)) return "builtin";
             if (stream.match(/\b\d+(?:\.\d+)?\b/)) return "number";
             if (stream.match(/[+\-*\/%=<>!&|]+/)) return "operator";
@@ -38,7 +37,6 @@ CodeMirror.defineMode("pycj", function() {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Updated Welcome Code (Added Class OOP Example)
     const welcomeCode = `USE PyCJ
 
 // Welcome to PyCJ! The easiest programming language.
@@ -75,19 +73,6 @@ echo "Student Age: {student(age)}"
 for key in student {
     echo "Key: {key}"
 }
-
-// Classes (OOP)
-class Student {
-    setup(name, grade) {
-        me.name = name
-        me.grade = grade
-    }
-    info() {
-        echo "{me.name} is in grade {me.grade}"
-    }
-}
-imagine s1 = Student("Arshman", 10)
-s1.info()
 
 // Lambda Functions (Anonymous Functions)
 imagine adder = (a, b) => {
@@ -310,14 +295,12 @@ halt(0);`;
             const result = await window.runPyCJ(code, addTerminalLine, waitForInput);
 
             if (result.error) {
-                // --- YELLOW WARNING BOX (USE PyCJ) ---
                 if (result.error.type === "PyCJWarning") {
                     const warnDiv = document.createElement("div");
                     warnDiv.className = "console-warning-box";
                     warnDiv.innerHTML = `⚠️ ${result.error.message}`;
                     outputDiv.appendChild(warnDiv);
                 } 
-                // --- RED MULTI ERROR BOX ---
                 else if (result.error.type === "PyCJMultiError") {
                     const errDiv = document.createElement("div");
                     errDiv.className = "console-error-box";
@@ -331,7 +314,6 @@ halt(0);`;
                     errDiv.innerHTML = html;
                     outputDiv.appendChild(errDiv);
                 } 
-                // --- RED SINGLE ERROR BOX ---
                 else if (result.error.type === "PyCJError") {
                     const errDiv = document.createElement("div");
                     errDiv.className = "console-error-box";
