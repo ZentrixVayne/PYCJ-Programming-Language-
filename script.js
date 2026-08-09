@@ -303,7 +303,8 @@ halt(0);`;
                     let html = `<div class="err-title">SYNTAX ERROR!</div>`;
                     html += `<div class="err-trace">Traceback (most recent call last):<br>File "<main.pycj>"</div>`;
                     result.error.errors.forEach(err => {
-                        html += `<div style="margin-bottom:4px; padding-left:10px;">→ Line ${err.line}: ${err.msg}</div>`;
+                        html += `<div style="margin-bottom:8px; padding-left:10px;">→ Line ${err.line}: ${err.msg}</div>`;
+                        html += `<div class="err-fix">${err.fix}</div>`;
                     });
                     html += `<div class="err-footer">=== Code Exited With Errors ===</div>`;
                     errDiv.innerHTML = html;
@@ -312,6 +313,7 @@ halt(0);`;
                         <div class="err-title">ERROR! ${result.error.message}</div>
                         <div class="err-trace">Traceback (most recent call last):<br>File "<main.pycj>", line ${result.error.line}, in <module></div>
                         <pre class="err-code">${result.error.snippet}\n${result.error.caret}</pre>
+                        <div class="err-fix">${result.error.fix}</div>
                         <div class="err-footer">=== Code Exited With Errors ===</div>
                     `;
                 } else {
