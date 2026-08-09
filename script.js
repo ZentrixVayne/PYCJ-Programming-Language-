@@ -320,13 +320,18 @@ halt(0);`;
                 else if (result.error.type === "PyCJError") {
                     const errDiv = document.createElement("div");
                     errDiv.className = "console-error-box";
-                    errDiv.innerHTML = `
-                        <div class="err-title">ERROR! ${result.error.message}</div>
-                        <div class="err-trace">Traceback (most recent call last):<br>File "<main.pycj>", line ${result.error.line}, in <module></div>
-                        <pre class="err-code">${result.error.snippet}\n${result.error.caret}</pre>
-                        <div class="err-fix">${result.error.fix}</div>
-                        <div class="err-footer">=== Code Exited With Errors ===</div>
-                    `;
+                    let html = `<div class="err-title">ERROR! ${result.error.message}</div>`;
+                    
+                    if (result.error.line > 0) {
+                        html += `<div class="err-trace">Traceback (most recent call last):<br>File "<main.pycj>", line ${result.error.line}, in <module></div>`;
+                        html += `<pre class="err-code">${result.error.snippet}\n${result.error.caret}</pre>`;
+                    } else {
+                        html += `<div class="err-trace">Failed to compile script. The error is somewhere in your code.</div>`;
+                    }
+                    
+                    html += `<div class="err-fix">${result.error.fix}</div>`;
+                    html += `<div class="err-footer">=== Code Exited With Errors ===</div>`;
+                    errDiv.innerHTML = html;
                     outputDiv.appendChild(errDiv);
                 } else {
                     const errDiv = document.createElement("div");
