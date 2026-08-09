@@ -1,5 +1,5 @@
 window.compilePyCJ = function(code) {
-    if (!/^\s*USE PYCJ\b/.test(code)) throw new Error("Write in capital! Make it USE PYCJ");
+    // Header is now strictly checked in runPyCJ before this runs.
     code = code.replace(/^\s*USE PYCJ\b/, '');
 
     code = code.replace(/\/\/.*$/gm, '');
@@ -280,6 +280,11 @@ function formatRuntimeError(e, originalCode) {
 }
 
 window.runPyCJ = async function(pycjCode, logCallback, inputCallback) {
+    // 0. STRICT HEADER CHECK (Returns Yellow Warning immediately)
+    if (!/^\s*USE PYCJ\b/.test(pycjCode)) {
+        return { error: { type: "PyCJWarning", message: "Missing or invalid header! Start your code with strictly 'USE PYCJ'." } };
+    }
+
     let syntaxErrors = lintSyntax(pycjCode);
     if (syntaxErrors.length > 0) {
         return { error: { type: "PyCJMultiError", errors: syntaxErrors } };
