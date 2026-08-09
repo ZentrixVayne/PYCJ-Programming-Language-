@@ -298,22 +298,28 @@ halt(0);`;
                 const errDiv = document.createElement("div");
                 errDiv.className = "console-error-box";
                 
-                // --- NEW ERROR RENDERING LOGIC ---
+                // --- NEW TRACEBACK LAYOUT ---
                 if (result.error.type === "PyCJMultiError") {
-                    let html = `<div style="font-weight:800; margin-bottom:8px; text-transform:uppercase;">PyCJ Syntax Errors:</div>`;
+                    let html = `<div class="err-title">SYNTAX ERROR!</div>`;
+                    html += `<div class="err-trace">Traceback (most recent call last):<br>File "<main.pycj>"</div>`;
                     result.error.errors.forEach(err => {
-                        html += `<div style="margin-bottom:4px;">→ Line ${err.line}: ${err.msg}</div>`;
+                        html += `<div style="margin-bottom:4px; padding-left:10px;">→ Line ${err.line}: ${err.msg}</div>`;
                     });
+                    html += `<div class="err-footer">=== Code Exited With Errors ===</div>`;
                     errDiv.innerHTML = html;
                 } else if (result.error.type === "PyCJError") {
                     errDiv.innerHTML = `
-                        <div style="font-weight:800; margin-bottom:8px; text-transform:uppercase;">PyCJ Runtime Error:</div>
-                        <div style="margin-bottom:8px;">${result.error.message}</div>
-                        <div style="margin-bottom:8px; opacity:0.8;">→ Line ${result.error.line}, Column ${result.error.col}</div>
-                        <pre style="margin:0; padding:8px; background:rgba(0,0,0,0.2); border-radius:4px; font-family:inherit;">${result.error.snippet}\n${result.error.caret}</pre>
+                        <div class="err-title">ERROR! ${result.error.message}</div>
+                        <div class="err-trace">Traceback (most recent call last):<br>File "<main.pycj>", line ${result.error.line}, in <module></div>
+                        <pre class="err-code">${result.error.snippet}\n${result.error.caret}</pre>
+                        <div class="err-footer">=== Code Exited With Errors ===</div>
                     `;
                 } else {
-                    errDiv.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0; margin-right: 8px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg> ${result.error.message || result.error}`;
+                    errDiv.innerHTML = `
+                        <div class="err-title">ERROR! ${result.error.message || result.error}</div>
+                        <div class="err-trace">Traceback (most recent call last):<br>File "<main.pycj>"</div>
+                        <div class="err-footer">=== Code Exited With Errors ===</div>
+                    `;
                 }
                 
                 outputDiv.appendChild(errDiv);
@@ -326,7 +332,10 @@ halt(0);`;
         } catch (error) {
             const errDiv = document.createElement("div");
             errDiv.className = "console-error-box";
-            errDiv.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0; margin-right: 8px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"></path></svg> ${error.message}`;
+            errDiv.innerHTML = `
+                <div class="err-title">ERROR! ${error.message}</div>
+                <div class="err-footer">=== Code Exited With Errors ===</div>
+            `;
             outputDiv.appendChild(errDiv);
         } finally {
             setRunState();
