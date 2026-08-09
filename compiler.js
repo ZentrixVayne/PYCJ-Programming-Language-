@@ -1,5 +1,5 @@
 window.compilePyCJ = function(code) {
-    // Header is now strictly checked in runPyCJ before this runs.
+    if (!/^\s*USE PyCJ\b/.test(code)) throw new Error("Write in capital! Make it USE PyCJ");
     code = code.replace(/^\s*USE PyCJ\b/, '');
 
     code = code.replace(/\/\/.*$/gm, '');
@@ -29,6 +29,7 @@ window.compilePyCJ = function(code) {
     }
     if (/\bhalt\s*\([^)]*\)\s*(?!;)/i.test(cleanCode)) throw new Error("PyCJ Warning: Make sure to put ; at end of halt statement so it work");
 
+    // 4. Smart String Interpolation ("Hello {name}" -> `Hello ${name}`)
     code = code.replace(/"([^"]*)"/g, (match, content) => {
         let n = content.replace(/\{([^{}]+)\}/g, '${$1}');
         return n.includes('${') ? '`' + n + '`' : match;
@@ -38,11 +39,14 @@ window.compilePyCJ = function(code) {
         return n.includes('${') ? '`' + n + '`' : match;
     });
 
-    code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|echo|ask|halt|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match|in)\b/gi, (m) => m.toLowerCase());
+    // 5. Normalize structural keywords to lowercase
+    code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|echo|ask|halt|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match|in|class|setup|me|new)\b/gi, (m) => m.toLowerCase());
 
+    // 5.5 INJECT PARENTHESES FOR JS CONTROL STRUCTURES
     code = code.replace(/\bif\s+(.*?)\s*\{/g, 'if ($1) {');
     code = code.replace(/\bwhile\s+(.*?)\s*\{/g, 'while ($1) {');
 
+    // --- 6. DICTIONARY ENGINE ---
     let dictNames = [];
     let dictRegex = /\b(?:imagine|lock)\s+([a-zA-Z_]\w*)\s*=\s*\{/g;
     let m;
@@ -63,48 +67,73 @@ window.compilePyCJ = function(code) {
         if (dictNames.includes(obj)) return `for (let ${k} in ${obj}) {`;
         return `for (let ${k} of ${obj}) {`;
     });
+    // ----------------------------
 
+    // 7. Multiple Return Values
     code = code.replace(/\breturn\s+([^;\n]+,[^;\n]+)\n/g, (match, p1) => `return [${p1.trim()}]\n`);
+    // 8. Array Destructuring
     code = code.replace(/\bimagine\s+([a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)+)\s*=/g, 'imagine [$1] =');
+    // 9. String Multiplication
     code = code.replace(/(["'`][^"'`]+["'`])\s*\*\s*([a-zA-Z_]\w*|\d+)/g, '$1.repeat($2)');
     code = code.replace(/([a-zA-Z_]\w*|\d+)\s*\*\s*(["'`][^"'`]+["'`])/g, '$2.repeat($1)');
 
+    // 10. Map 'craft' to 'function'
     code = code.replace(/\bcraft\b/g, 'function');
+
+    // --- 10.5 CLASSES (OOP) ---
+    // Map 'setup' to 'constructor' and 'me' to 'this'
+    code = code.replace(/\bsetup\s*\{/g, 'constructor() {'); // Support setup { ... }
+    code = code.replace(/\bsetup\b/g, 'constructor');        // Support setup(args) { ... }
+    code = code.replace(/\bme\./g, 'this.');                  // me.name -> this.name
+    code = code.replace(/\bme\b/g, 'this');                   // me -> this
+    // --------------------------
+
+    // 11. Variables & Constants
     code = code.replace(/\bimagine\b/g, 'let');
     code = code.replace(/\block\b/g, 'const');
 
+    // --- 12. ECHO (SUPPORTS BOTH PYTHON AND BASH STYLE) ---
     code = code.replace(/\becho\s*\(/g, 'console.log(');
     code = code.replace(/^(\s*)echo\s+(.*?)(\s*\/\/.*)?;?\s*$/gm, (match, indent, expr, comment) => {
         return `${indent}console.log(${expr.trim()});${comment || ''}`;
     });
+    // -------------------------------------------------------
 
+    // 12.5 Halt
     code = code.replace(/\bhalt\s*\(([^)]*)\)\s*;/g, '__end__($1);');
 
+    // 13. Input Handling (ASYNC)
     code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*`([^`]*)`/gi, (m, t, v, p) => parseAsk(t, v, p));
     code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*"([^"]*)"/gi, (m, t, v, p) => parseAsk(t, v, p));
 
+    // 14. Math Operators
     code = code.replace(/\s*\/=\/=\s*/g, ' //== ');
     code = code.replace(/\s*\/=\/\s*/g, ' /=~ ');
     code = code.replace(/([a-zA-Z_]\w*)\s*\/\/==\s*([a-zA-Z0-9_\(\)\.]+)/g, '$1 = Math.floor($1 / $2)');
     code = code.replace(/([a-zA-Z0-9_\)\]]+)\s*\/=~\s*([a-zA-Z0-9_\(\.]+)/g, 'Math.floor($1 / $2)');
 
+    // 15. Booleans & Logical Operators
     code = code.replace(/\byes\b/gi, 'true');
     code = code.replace(/\bno\b/gi, 'false');
     code = code.replace(/\band\b/gi, '&&');
     code = code.replace(/\bor\b/gi, '||');
     code = code.replace(/\bnot\b/gi, '!');
 
+    // 16. Loop Control & Error Handling
     code = code.replace(/\bstop\b/g, 'break');
     code = code.replace(/\bskip\b/g, 'continue');
     code = code.replace(/\battempt\b/g, 'try');
     code = code.replace(/\brescue\b/g, 'catch(e)');
 
+    // 17. List Methods
     code = code.replace(/\.add\(/g, '.push(');
     code = code.replace(/\.len\(\)/g, '.length');
     code = code.replace(/\.remove\(/g, '.pycjRemove(');
 
+    // 18. C-style For Loop
     code = code.replace(/for\s*\(\s*(?:int\s+)?([a-zA-Z_]\w*)\s*=\s*([^,]+)\s*,\s*\1\s*(<=?|>=?|==|!=)\s*([^,]+)\s*,\s*\1(\+\+|--)\s*\)/g, 'for (let $1 = $2; $1 $3 $4; $1$5)');
 
+    // 19. PyCJ Range Loop
     code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+range\s*\(\s*([^,)]+)\s*,\s*(<=|>=|<|>|!=)\s*,\s*([^,)]+)\s*\)/g, (match, v, s, o, e) => {
         if (o === '<') return `for (let ${v} = ${s}; ${v} < ${e}; ${v}++)`;
         if (o === '<=') return `for (let ${v} = ${s}; ${v} <= ${e}; ${v}++)`;
@@ -114,10 +143,13 @@ window.compilePyCJ = function(code) {
     });
     code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+range\s*\(\s*([^,)]+)\s*,\s*([^,)]+)\s*\)/g, 'for (let $1 = $2; $1 <= $3; $1++)');
 
+    // 20. Repeat...Until
     code = code.replace(/\brepeat\s*\{/g, 'do {');
     code = code.replace(/\buntil\s+(.*?)(?=\n)/g, 'while (!($1));');
+    // 21. Ternary Operator
     code = code.replace(/\bif\s+(.*?)\s+then\s+(.*?)\s+else\s+(.*?)(?=[;\n\)\],])/g, '(($1) ? ($2) : ($3))');
 
+    // 22. Match Statement
     code = translateMatchStatements(code);
     code = code.replace(/\belse\s+if\b/g, 'else if');
 
@@ -339,6 +371,18 @@ window.runPyCJ = async function(pycjCode, logCallback, inputCallback) {
     } catch (e) {
         if (e.isEnd) {
             exitCode = e.code;
+        } else if (e instanceof SyntaxError) {
+            // Handle severe parse errors that happen BEFORE execution (line 0)
+            error = {
+                type: "PyCJError",
+                message: `Syntax Error: ${e.message}`,
+                line: 0, 
+                col: 0,
+                snippet: "",
+                caret: "",
+                fix: "💡 Suggestion: Check for missing '=', mismatched brackets, or invalid function/lambda syntax (e.g., imagine name = (params) => { ... })."
+            };
+            exitCode = 1;
         } else {
             error = formatRuntimeError(e, pycjCode);
             exitCode = 1;
