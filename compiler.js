@@ -1,11 +1,16 @@
 window.compilePyCJ = function(code) {
-    if (!/^\s*USE PYCJ\b/.test(code)) throw new Error("Write in capital! Make it USE PYCJ");
+    // 1. MANDATORY HEADER CHECK (STRICTLY USE PYCJ)
+    if (!/^\s*USE PYCJ\b/.test(code)) {
+        throw new Error("Write in capital! Make it USE PYCJ");
+    }
     code = code.replace(/^\s*USE PYCJ\b/, '');
 
+    // 2. Remove Comments Early
     code = code.replace(/\/\/.*$/gm, '');
     code = code.replace(/\/\*[\s\S]*?\*\//g, '');
     code = code.replace(/#.*$/gm, '');
 
+    // 3. Strict Syntax Validation
     let cleanCode = code.replace(/"([^"]*)"/g, '""').replace(/'([^']*)'/g, "''");
     const forbidden = {
         'print': "Use 'echo()' instead of 'print()'.",
@@ -29,7 +34,7 @@ window.compilePyCJ = function(code) {
     }
     if (/\bhalt\s*\([^)]*\)\s*(?!;)/i.test(cleanCode)) throw new Error("PyCJ Warning: Make sure to put ; at end of halt statement so it work");
 
-    // 4. Smart String Interpolation
+    // 4. Smart String Interpolation ("Hello {name}" -> `Hello ${name}`)
     code = code.replace(/"([^"]*)"/g, (match, content) => {
         let n = content.replace(/\{([^{}]+)\}/g, '${$1}');
         return n.includes('${') ? '`' + n + '`' : match;
@@ -85,9 +90,11 @@ window.compilePyCJ = function(code) {
     code = code.replace(/\block\b/g, 'const');
 
     // --- 12. ECHO (SUPPORTS BOTH PYTHON AND BASH STYLE) ---
+    // A) Python style: echo("Hello") -> console.log("Hello")
     code = code.replace(/\becho\s*\(/g, 'console.log(');
-    code = code.replace(/^(\s*)echo\s+(?!.*\()(.*?)(\s*\/\/.*)?$/gm, (match, indent, expr, comment) => {
-        return `${indent}console.log(${expr.trim()})${comment || ''}`;
+    // B) Bash style: echo "Hello" -> console.log("Hello")
+    code = code.replace(/^(\s*)echo\s+(.*?)(\s*\/\/.*)?;?\s*$/gm, (match, indent, expr, comment) => {
+        return `${indent}console.log(${expr.trim()});${comment || ''}`;
     });
     // -------------------------------------------------------
 
