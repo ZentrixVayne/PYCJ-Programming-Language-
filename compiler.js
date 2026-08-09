@@ -1,16 +1,11 @@
 window.compilePyCJ = function(code) {
-    // 1. MANDATORY HEADER CHECK (STRICTLY USE PYCJ)
-    if (!/^\s*USE PYCJ\b/.test(code)) {
-        throw new Error("Write in capital! Make it USE PYCJ");
-    }
+    if (!/^\s*USE PYCJ\b/.test(code)) throw new Error("Write in capital! Make it USE PYCJ");
     code = code.replace(/^\s*USE PYCJ\b/, '');
 
-    // 2. Remove Comments Early
     code = code.replace(/\/\/.*$/gm, '');
     code = code.replace(/\/\*[\s\S]*?\*\//g, '');
     code = code.replace(/#.*$/gm, '');
 
-    // 3. Strict Syntax Validation
     let cleanCode = code.replace(/"([^"]*)"/g, '""').replace(/'([^']*)'/g, "''");
     const forbidden = {
         'print': "Use 'echo()' instead of 'print()'.",
@@ -34,7 +29,6 @@ window.compilePyCJ = function(code) {
     }
     if (/\bhalt\s*\([^)]*\)\s*(?!;)/i.test(cleanCode)) throw new Error("PyCJ Warning: Make sure to put ; at end of halt statement so it work");
 
-    // 4. Smart String Interpolation ("Hello {name}" -> `Hello ${name}`)
     code = code.replace(/"([^"]*)"/g, (match, content) => {
         let n = content.replace(/\{([^{}]+)\}/g, '${$1}');
         return n.includes('${') ? '`' + n + '`' : match;
@@ -44,14 +38,11 @@ window.compilePyCJ = function(code) {
         return n.includes('${') ? '`' + n + '`' : match;
     });
 
-    // 5. Normalize structural keywords to lowercase
     code = code.replace(/\b(if|elif|else|repeat|until|for|while|return|craft|imagine|echo|ask|halt|int|float|str|string|bool|stop|skip|attempt|rescue|lock|then|not|and|or|match|in)\b/gi, (m) => m.toLowerCase());
 
-    // 5.5 INJECT PARENTHESES FOR JS CONTROL STRUCTURES
     code = code.replace(/\bif\s+(.*?)\s*\{/g, 'if ($1) {');
     code = code.replace(/\bwhile\s+(.*?)\s*\{/g, 'while ($1) {');
 
-    // --- 6. DICTIONARY ENGINE ---
     let dictNames = [];
     let dictRegex = /\b(?:imagine|lock)\s+([a-zA-Z_]\w*)\s*=\s*\{/g;
     let m;
@@ -72,67 +63,48 @@ window.compilePyCJ = function(code) {
         if (dictNames.includes(obj)) return `for (let ${k} in ${obj}) {`;
         return `for (let ${k} of ${obj}) {`;
     });
-    // ----------------------------
 
-    // 7. Multiple Return Values
     code = code.replace(/\breturn\s+([^;\n]+,[^;\n]+)\n/g, (match, p1) => `return [${p1.trim()}]\n`);
-    // 8. Array Destructuring
     code = code.replace(/\bimagine\s+([a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)+)\s*=/g, 'imagine [$1] =');
-    // 9. String Multiplication
     code = code.replace(/(["'`][^"'`]+["'`])\s*\*\s*([a-zA-Z_]\w*|\d+)/g, '$1.repeat($2)');
     code = code.replace(/([a-zA-Z_]\w*|\d+)\s*\*\s*(["'`][^"'`]+["'`])/g, '$2.repeat($1)');
 
-    // 10. Map 'craft' to 'function'
     code = code.replace(/\bcraft\b/g, 'function');
-
-    // 11. Variables & Constants
     code = code.replace(/\bimagine\b/g, 'let');
     code = code.replace(/\block\b/g, 'const');
 
-    // --- 12. ECHO (SUPPORTS BOTH PYTHON AND BASH STYLE) ---
-    // A) Python style: echo("Hello") -> console.log("Hello")
     code = code.replace(/\becho\s*\(/g, 'console.log(');
-    // B) Bash style: echo "Hello" -> console.log("Hello")
     code = code.replace(/^(\s*)echo\s+(.*?)(\s*\/\/.*)?;?\s*$/gm, (match, indent, expr, comment) => {
         return `${indent}console.log(${expr.trim()});${comment || ''}`;
     });
-    // -------------------------------------------------------
 
-    // 12.5 Halt
     code = code.replace(/\bhalt\s*\(([^)]*)\)\s*;/g, '__end__($1);');
 
-    // 13. Input Handling (ASYNC)
     code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*`([^`]*)`/gi, (m, t, v, p) => parseAsk(t, v, p));
     code = code.replace(/\bask\s+(int|float|str|string|bool)\s+(\w+)\s*=\s*"([^"]*)"/gi, (m, t, v, p) => parseAsk(t, v, p));
 
-    // 14. Math Operators
     code = code.replace(/\s*\/=\/=\s*/g, ' //== ');
     code = code.replace(/\s*\/=\/\s*/g, ' /=~ ');
     code = code.replace(/([a-zA-Z_]\w*)\s*\/\/==\s*([a-zA-Z0-9_\(\)\.]+)/g, '$1 = Math.floor($1 / $2)');
     code = code.replace(/([a-zA-Z0-9_\)\]]+)\s*\/=~\s*([a-zA-Z0-9_\(\.]+)/g, 'Math.floor($1 / $2)');
 
-    // 15. Booleans & Logical Operators
     code = code.replace(/\byes\b/gi, 'true');
     code = code.replace(/\bno\b/gi, 'false');
     code = code.replace(/\band\b/gi, '&&');
     code = code.replace(/\bor\b/gi, '||');
     code = code.replace(/\bnot\b/gi, '!');
 
-    // 16. Loop Control & Error Handling
     code = code.replace(/\bstop\b/g, 'break');
     code = code.replace(/\bskip\b/g, 'continue');
     code = code.replace(/\battempt\b/g, 'try');
     code = code.replace(/\brescue\b/g, 'catch(e)');
 
-    // 17. List Methods
     code = code.replace(/\.add\(/g, '.push(');
     code = code.replace(/\.len\(\)/g, '.length');
     code = code.replace(/\.remove\(/g, '.pycjRemove(');
 
-    // 18. C-style For Loop
     code = code.replace(/for\s*\(\s*(?:int\s+)?([a-zA-Z_]\w*)\s*=\s*([^,]+)\s*,\s*\1\s*(<=?|>=?|==|!=)\s*([^,]+)\s*,\s*\1(\+\+|--)\s*\)/g, 'for (let $1 = $2; $1 $3 $4; $1$5)');
 
-    // 19. PyCJ Range Loop
     code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+range\s*\(\s*([^,)]+)\s*,\s*(<=|>=|<|>|!=)\s*,\s*([^,)]+)\s*\)/g, (match, v, s, o, e) => {
         if (o === '<') return `for (let ${v} = ${s}; ${v} < ${e}; ${v}++)`;
         if (o === '<=') return `for (let ${v} = ${s}; ${v} <= ${e}; ${v}++)`;
@@ -142,13 +114,10 @@ window.compilePyCJ = function(code) {
     });
     code = code.replace(/for\s+([a-zA-Z_]\w*)\s+in\s+range\s*\(\s*([^,)]+)\s*,\s*([^,)]+)\s*\)/g, 'for (let $1 = $2; $1 <= $3; $1++)');
 
-    // 20. Repeat...Until
     code = code.replace(/\brepeat\s*\{/g, 'do {');
     code = code.replace(/\buntil\s+(.*?)(?=\n)/g, 'while (!($1));');
-    // 21. Ternary Operator
     code = code.replace(/\bif\s+(.*?)\s+then\s+(.*?)\s+else\s+(.*?)(?=[;\n\)\],])/g, '(($1) ? ($2) : ($3))');
 
-    // 22. Match Statement
     code = translateMatchStatements(code);
     code = code.replace(/\belse\s+if\b/g, 'else if');
 
@@ -215,8 +184,112 @@ function translateMatchStatements(code) {
     return newLines.join('\n');
 }
 
+// --- NEW: STATIC SYNTAX LINTER ---
+function lintSyntax(code) {
+    let errors = [];
+    let lines = code.split('\n');
+    let stack = []; // Tracks {, (, [
+    
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        // Remove strings so brackets inside strings don't count
+        let cleanLine = line.replace(/"([^"\\]|\\.)*"/g, '""').replace(/'([^'\\]|\\.)*'/g, "''").replace(/`([^`\\]|\\.)*`/g, "``");
+        
+        for (let char of cleanLine) {
+            if (char === '{' || char === '(' || char === '[') {
+                stack.push({ char, line: i + 1 });
+            } else if (char === '}' || char === ')' || char === ']') {
+                if (stack.length === 0) {
+                    errors.push({ msg: `Unexpected closing bracket '${char}'`, line: i + 1 });
+                } else {
+                    let last = stack.pop();
+                    let expected = char === '}' ? '{' : (char === ')' ? '(' : '[');
+                    if (last.char !== expected) {
+                        errors.push({ msg: `Mismatched bracket: expected '${expected}' but found '${char}'`, line: i + 1 });
+                    }
+                }
+            }
+        }
+    }
+    
+    // Any brackets left in the stack were never closed
+    stack.forEach(item => {
+        errors.push({ msg: `Missing closing bracket for '${item.char}'`, line: item.line });
+    });
+    
+    return errors;
+}
+
+// --- NEW: RUNTIME ERROR FORMATTER ---
+function formatRuntimeError(e, originalCode) {
+    let jsLine = 1;
+    // JS stack traces contain the line number in the format <anonymous>:LINE:COL
+    let stackMatch = e.stack.match(/<anonymous>:(\d+):(\d+)/);
+    if (stackMatch) {
+        jsLine = parseInt(stackMatch[1]);
+    }
+
+    // Map JS line back to PyCJ line. (Our async wrapper adds 1 line of overhead at the top, so we subtract 1)
+    let pycjLine = jsLine - 1; 
+    let pycjLines = originalCode.split('\n');
+    let lineText = pycjLines[pycjLine - 1] || "Unknown Line";
+    
+    let msg = e.message;
+    let errorWord = null;
+
+    // Translate JS errors to PyCJ errors
+    if (e instanceof ReferenceError) {
+        errorWord = msg.replace(" is not defined", "").trim();
+        msg = `Unknown variable or function '${errorWord}'`;
+    } else if (e instanceof TypeError) {
+        if (msg.includes("is not a function")) {
+            errorWord = msg.replace(" is not a function", "").trim();
+            msg = `Invalid function call: '${errorWord}' is not a function`;
+        } else if (msg.includes("Cannot read properties of undefined")) {
+            msg = `Invalid dictionary or object access: ${msg}`;
+        } else {
+            msg = `Type Error: ${msg}`;
+        }
+    } else if (e instanceof SyntaxError) {
+        msg = `Syntax Error: ${msg}`;
+    }
+
+    // Calculate the column for the caret (^^^^^)
+    let col = 1;
+    let caretLen = 5;
+    if (errorWord && lineText.includes(errorWord)) {
+        col = lineText.indexOf(errorWord) + 1;
+        caretLen = errorWord.length;
+    } else if (stackMatch) {
+        col = parseInt(stackMatch[2]);
+    }
+
+    let caretStr = " ".repeat(col - 1) + "^".repeat(caretLen);
+
+    return {
+        type: "PyCJError",
+        message: msg,
+        line: pycjLine,
+        col: col,
+        snippet: lineText.trim(),
+        caret: caretStr.trim()
+    };
+}
+
 window.runPyCJ = async function(pycjCode, logCallback, inputCallback) {
-    let jsCode = window.compilePyCJ(pycjCode);
+    // 0. Run Static Linter First (Catches missing } etc.)
+    let syntaxErrors = lintSyntax(pycjCode);
+    if (syntaxErrors.length > 0) {
+        return { error: { type: "PyCJMultiError", errors: syntaxErrors } };
+    }
+
+    let jsCode;
+    try {
+        jsCode = window.compilePyCJ(pycjCode);
+    } catch (e) {
+        return { error: { type: "PyCJError", message: e.message, line: 0, col: 0, snippet: "", caret: "" } };
+    }
+    
     let exitCode = 0;
     let error = null;
     
@@ -260,13 +333,10 @@ window.runPyCJ = async function(pycjCode, logCallback, inputCallback) {
         if (e.isEnd) {
             exitCode = e.code;
         } else {
-            error = e.message;
-            if (error.includes("is not defined")) {
-                error = error.replace(" is not defined", " is not defined (Check for missing variables or typos)");
-            }
+            error = formatRuntimeError(e, pycjCode);
             exitCode = 1;
         }
     }
     
-    return { exitCode: exitCode, error: error, debug_js: jsCode };
+    return { exitCode: exitCode, error: error };
 }
