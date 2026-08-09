@@ -1,6 +1,6 @@
 window.compilePyCJ = function(code) {
     // Header is now strictly checked in runPyCJ before this runs.
-    code = code.replace(/^\s*USE PYCJ\b/, '');
+    code = code.replace(/^\s*USE PyCJ\b/, '');
 
     code = code.replace(/\/\/.*$/gm, '');
     code = code.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -281,8 +281,8 @@ function formatRuntimeError(e, originalCode) {
 
 window.runPyCJ = async function(pycjCode, logCallback, inputCallback) {
     // 0. STRICT HEADER CHECK (Returns Yellow Warning immediately)
-    if (!/^\s*USE PYCJ\b/.test(pycjCode)) {
-        return { error: { type: "PyCJWarning", message: "Missing or invalid header! Start your code with strictly 'USE PYCJ'." } };
+    if (!/^\s*USE PyCJ\b/.test(pycjCode)) {
+        return { error: { type: "PyCJWarning", message: "Missing or invalid header! Start your code with strictly 'USE PyCJ'." } };
     }
 
     let syntaxErrors = lintSyntax(pycjCode);
