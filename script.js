@@ -25,7 +25,7 @@ CodeMirror.defineMode("pycj", function() {
                 return "comment";
             }
             if (stream.match('"') || stream.match("'")) { state.inString = true; state.stringQuote = stream.current(); return "string"; }
-            if (stream.match(/\b(?:imagine|echo|ask|if|elif|else|repeat|until|while|for|in|craft|return|halt|Yes|No|stop|skip|attempt|rescue|lock|then|USE|PYCJ|match|remove)\b/i)) return "keyword";
+            if (stream.match(/\b(?:imagine|echo|ask|if|elif|else|repeat|until|while|for|in|craft|return|halt|Yes|No|stop|skip|attempt|rescue|lock|then|USE|PyCJ|match|remove)\b/i)) return "keyword";
             if (stream.match(/\b(?:int|float|str|string|bool|random|sqrt|abs|max|min|len|add|pycj)\b/i)) return "builtin";
             if (stream.match(/\b\d+(?:\.\d+)?\b/)) return "number";
             if (stream.match(/[+\-*\/%=<>!&|]+/)) return "operator";
@@ -37,7 +37,7 @@ CodeMirror.defineMode("pycj", function() {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-    const welcomeCode = `USE PYCJ
+    const welcomeCode = `USE PyCJ
 
 // Welcome to PyCJ! The easiest programming language.
 ask string name = "What is your name? "
@@ -295,7 +295,7 @@ halt(0);`;
             const result = await window.runPyCJ(code, addTerminalLine, waitForInput);
 
             if (result.error) {
-                // --- YELLOW WARNING BOX (USE PYCJ) ---
+                // --- YELLOW WARNING BOX (USE PyCJ) ---
                 if (result.error.type === "PyCJWarning") {
                     const warnDiv = document.createElement("div");
                     warnDiv.className = "console-warning-box";
