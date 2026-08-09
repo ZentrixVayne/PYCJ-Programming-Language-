@@ -295,20 +295,31 @@ halt(0);`;
             const result = await window.runPyCJ(code, addTerminalLine, waitForInput);
 
             if (result.error) {
-                const errDiv = document.createElement("div");
-                errDiv.className = "console-error-box";
-                
-                // --- NEW TRACEBACK LAYOUT ---
-                if (result.error.type === "PyCJMultiError") {
+                // --- YELLOW WARNING BOX (USE PYCJ) ---
+                if (result.error.type === "PyCJWarning") {
+                    const warnDiv = document.createElement("div");
+                    warnDiv.className = "console-warning-box";
+                    warnDiv.innerHTML = `⚠️ ${result.error.message}`;
+                    outputDiv.appendChild(warnDiv);
+                } 
+                // --- RED MULTI ERROR BOX ---
+                else if (result.error.type === "PyCJMultiError") {
+                    const errDiv = document.createElement("div");
+                    errDiv.className = "console-error-box";
                     let html = `<div class="err-title">SYNTAX ERROR!</div>`;
                     html += `<div class="err-trace">Traceback (most recent call last):<br>File "<main.pycj>"</div>`;
                     result.error.errors.forEach(err => {
-                        html += `<div style="margin-bottom:8px; padding-left:10px;">→ Line ${err.line}: ${err.msg}</div>`;
+                        html += `<div style="margin-bottom:6px; padding-left:10px;">→ Line ${err.line}: ${err.msg}</div>`;
                         html += `<div class="err-fix">${err.fix}</div>`;
                     });
                     html += `<div class="err-footer">=== Code Exited With Errors ===</div>`;
                     errDiv.innerHTML = html;
-                } else if (result.error.type === "PyCJError") {
+                    outputDiv.appendChild(errDiv);
+                } 
+                // --- RED SINGLE ERROR BOX ---
+                else if (result.error.type === "PyCJError") {
+                    const errDiv = document.createElement("div");
+                    errDiv.className = "console-error-box";
                     errDiv.innerHTML = `
                         <div class="err-title">ERROR! ${result.error.message}</div>
                         <div class="err-trace">Traceback (most recent call last):<br>File "<main.pycj>", line ${result.error.line}, in <module></div>
@@ -316,15 +327,17 @@ halt(0);`;
                         <div class="err-fix">${result.error.fix}</div>
                         <div class="err-footer">=== Code Exited With Errors ===</div>
                     `;
+                    outputDiv.appendChild(errDiv);
                 } else {
+                    const errDiv = document.createElement("div");
+                    errDiv.className = "console-error-box";
                     errDiv.innerHTML = `
                         <div class="err-title">ERROR! ${result.error.message || result.error}</div>
                         <div class="err-trace">Traceback (most recent call last):<br>File "<main.pycj>"</div>
                         <div class="err-footer">=== Code Exited With Errors ===</div>
                     `;
+                    outputDiv.appendChild(errDiv);
                 }
-                
-                outputDiv.appendChild(errDiv);
             } else {
                 const exitDiv = document.createElement("div");
                 exitDiv.className = "console-exit-box";
